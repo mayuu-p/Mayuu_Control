@@ -29,7 +29,7 @@
 <div class="page" id="devices"><div class="card"><h2>Enrolled devices / browsers</h2><p class="sub">Browser data is real where the browser exposes it. Android-agent-only capabilities remain unavailable until the Android app is installed and connected.</p><div class="tablewrap"><table><thead><tr><th>LABEL</th><th>STATUS</th><th>PUBLIC IP</th><th>DEVICE MODEL</th><th>OS / BROWSER</th><th>BATTERY</th><th>LAST SEEN</th><th>ACTION</th></tr></thead><tbody id="deviceRows"><tr><td colspan="8">Loading…</td></tr></tbody></table></div></div></div>
 <div class="page" id="capabilities"><div class="card"><h2>Device capability status</h2><p class="sub">Status is based on the actual connected browser session. Android-only functions are marked pending, not falsely shown as active.</p><div id="capabilityMatrix" class="capgrid"></div></div></div>
 <div class="page" id="invites"><div class="grid cols"><div class="card"><h2>Create enrollment link</h2><p class="muted">Each link is single-use and expires after 30 minutes.</p><div class="field"><label>Device / person label</label><input id="inviteLabel" maxlength="80" placeholder="e.g. My Android phone"></div><button class="btn primary" id="createInvite">Generate secure link</button><div id="newLink" class="hidden"><div class="linkbox" id="linkText"></div><div class="row"><button class="btn" id="copyLink">Copy link</button><span class="muted" id="expiry"></span></div></div></div><div class="card"><h2>How enrollment works</h2><ol class="muted"><li>Generate a one-time link.</li><li>Open it on the device/browser owner wants to enroll.</li><li>Person reads the disclosure and chooses to consent.</li><li>Dashboard receives limited browser data and server-observed IP.</li><li>GPS is separate and opt-in.</li></ol></div></div></div>
-<div class="page" id="locations"><div class="card"><h2>Live location map</h2><p class="sub">Latest consented GPS point. Keep the enrolled browser open while sharing.</p><div id="liveMap" class="map">No location shared yet.</div><h2 style="margin-top:18px">Consent-based location history</h2><p class="sub">Only coordinates shared after a user action and browser permission are shown.</p><div class="tablewrap"><table><thead><tr><th>ENROLLED DEVICE</th><th>LATITUDE</th><th>LONGITUDE</th><th>ACCURACY</th><th>CAPTURED</th></tr></thead><tbody id="locationRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></div></div>
+<div class="page" id="locations"><div class="card"><h2>Live location map</h2><p class="sub">Live map of the most recent GPS point shared with permission. The enrolled browser must stay open and GPS sharing must remain enabled.</p><div id="liveMap" class="map">No location shared yet.</div><h2 style="margin-top:18px">Consent-based location history</h2><p class="sub">Only coordinates shared after a user action and browser permission are shown.</p><div class="tablewrap"><table><thead><tr><th>ENROLLED DEVICE</th><th>LATITUDE</th><th>LONGITUDE</th><th>ACCURACY</th><th>CAPTURED</th></tr></thead><tbody id="locationRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></div></div>
 </section>
 
 <section id="enrollView" class="hidden auth card">
@@ -155,13 +155,21 @@ refresh = async function() {
   const coords = document.createElement("p");
   coords.className = "muted";
   coords.textContent = lat.toFixed(6) + ", " + lng.toFixed(6) + " · " + fmt(point.captured_at);
+  const frame = document.createElement("iframe");
+  frame.title = "Latest consented device location";
+  frame.loading = "lazy";
+  frame.referrerPolicy = "no-referrer";
+  frame.width = "100%"; frame.height = "300";
+  frame.style.cssText = "border:0;border-radius:10px;margin:10px 0";
+  frame.src = "https://www.openstreetmap.org/export/embed.html?bbox=" + (lng-0.01) + "%2C" + (lat-0.01) + "%2C" + (lng+0.01) + "%2C" + (lat+0.01) + "&layer=mapnik&marker=" + lat + "%2C" + lng;
   const link = document.createElement("a");
-  link.className = "btn";
-  link.target = "_blank";
-  link.rel = "noopener";
+  link.className = "btn"; link.target = "_blank"; link.rel = "noopener";
   link.href = "https://www.openstreetmap.org/?mlat=" + lat + "&mlon=" + lng + "#map=17/" + lat + "/" + lng;
-  link.textContent = "Open on map ↗";
-  map.append(label, coords, link);
+  link.textContent = "Open larger map ↗";
+  const freshness = document.createElement("p"); freshness.className = "muted";
+  const age = Math.max(0, Math.round((Date.now()-new Date(point.captured_at).getTime())/1000));
+  freshness.textContent = age < 60 ? "Updated " + age + " seconds ago" : "Last shared " + fmt(point.captured_at) + " · " + Math.round(age/60) + " min ago";
+  map.append(label, coords, freshness, frame, link);
 };
 
 </script></body></html>
