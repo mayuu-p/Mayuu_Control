@@ -42,7 +42,7 @@ class RecoveryService : Service() {
         handler.post(loop)
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!prefs.contains("device_id") || !prefs.contains("session_secret")) {
+        if (!prefs.contains("device_id") || DeviceSecrets.read(this).isNullOrBlank()) {
             stopSelf()
             return START_NOT_STICKY
         }
@@ -93,14 +93,15 @@ class RecoveryService : Service() {
             } catch (error: Exception) {
                 // Retry transient network failures. A revoked/invalid session is cleared locally.
                 if (error.message?.contains("HTTP 401") == true) {
-                    prefs.edit().remove("device_id").remove("session_secret").apply()
+                    prefs.edit().remove("device_id").apply()
+                    DeviceSecrets.clear(this)
                     stopSelf()
                 }
             }
         }
     }
     private fun credentials() = JSONObject().put("deviceId", prefs.getString("device_id", ""))
-        .put("sessionSecret", prefs.getString("session_secret", ""))
+        .put("sessionSecret", DeviceSecrets.read(this) ?: "")
     private fun post(body: JSONObject): JSONObject {
         val c = (URL(api).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; connectTimeout = 12000; readTimeout = 12000; doOutput = true
