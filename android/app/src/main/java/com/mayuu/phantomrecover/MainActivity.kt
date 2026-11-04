@@ -75,8 +75,8 @@ class MainActivity : Activity() {
                 val response = post(JSONObject().put("action", "device_redeem").put("token", token)
                     .put("installId", installId).put("consent", true).put("deviceInfo", info))
                 prefs.edit().putString("device_id", response.getString("deviceId"))
-                    .putString("session_secret", response.getString("sessionSecret"))
                     .putString("device_label", response.optString("label", "My Android")).apply()
+                DeviceSecrets.save(this, response.getString("sessionSecret"))
                 runOnUiThread {
                     tokenInput.setText("")
                     toast("Device enrolled successfully.")
@@ -113,7 +113,7 @@ class MainActivity : Activity() {
                     try { manager.getLastKnownLocation(p) } catch (_: SecurityException) { null }
                 }.maxByOrNull { it.time } ?: throw Exception("No last-known location. Turn on device location and try again.")
                 val id = prefs.getString("device_id", null) ?: throw Exception("Device is not enrolled.")
-                val secret = prefs.getString("session_secret", null) ?: throw Exception("Session missing.")
+                val secret = DeviceSecrets.read(this) ?: throw Exception("Secure device session is unavailable. Re-enroll this device.")
                 post(JSONObject().put("action", "device_location").put("deviceId", id).put("sessionSecret", secret)
                     .put("latitude", loc.latitude).put("longitude", loc.longitude).put("accuracy", loc.accuracy))
                 runOnUiThread { toast("Location shared. Accuracy: ${loc.accuracy.toInt()} m") }
