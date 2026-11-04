@@ -82,6 +82,44 @@ Deno.serve(async (req) => {
       return json({ deviceId: device.id, sessionSecret, label: device.device_label, serverTime: now });
     }
 
+    if (["device_signal_send","device_signal_poll","device_poll","command_ack"].includes(action) && body.enrollmentId) {
+      const enrollmentId = String(body.enrollmentId || "");
+      const secret = String(body.sessionSecret || "");
+      if (!/^[0-9a-f-]{36}$/i.test(enrollmentId) || !/^[a-f0-9]{64}$/.test(secret)) return json({ error: "Invalid browser session." }, 401);
+      const { data: enrollment, error: enrollmentError } = await admin.from("phantom_web_enrollments")
+        .select("id,owner_user_id,session_hash,status").eq("id", enrollmentId).maybeSingle();
+      if (enrollmentError || !enrollment || enrollment.status === "revoked" || enrollment.session_hash !== await hash(secret))
+        return json({ error: "Browser session revoked or invalid." }, 401);
+      if (action === "device_signal_send") {
+        const message = body.message;
+        if (!message || typeof message !== "object" || JSON.stringify(message).length > 16000) return json({ error: "Invalid signaling message." }, 400);
+        const { error } = await admin.from("phantom_web_signals").insert({ enrollment_id: enrollmentId, sender_role: "device", message });
+        if (error) throw error;
+        return json({ ok: true });
+      }
+      if (action === "device_signal_poll") {
+        const after = String(body.after || new Date(Date.now()-30000).toISOString());
+        const { data, error } = await admin.from("phantom_web_signals").select("id,message,created_at")
+          .eq("enrollment_id", enrollmentId).eq("sender_role", "owner").gt("created_at", after).order("created_at").limit(100);
+        if (error) throw error;
+        return json({ signals: data || [] });
+      }
+      if (action === "device_poll") {
+        const { data, error } = await admin.from("phantom_web_commands").select("id,command,payload")
+          .eq("enrollment_id", enrollmentId).eq("status", "queued").order("created_at").limit(20);
+        if (error) throw error;
+        const ids = (data || []).map((x: {id:string}) => x.id);
+        if (ids.length) { const { error: markError } = await admin.from("phantom_web_commands").update({status:"delivered",delivered_at:new Date().toISOString()}).in("id",ids); if (markError) throw markError; }
+        return json({ commands: data || [] });
+      }
+      const commandId = String(body.commandId || "");
+      const { data, error } = await admin.from("phantom_web_commands").update({status:body.success===true?"acknowledged":"failed",acknowledged_at:new Date().toISOString()})
+        .eq("id",commandId).eq("enrollment_id",enrollmentId).eq("status","delivered").select("id").maybeSingle();
+      if (error) throw error;
+      if (!data) return json({error:"Command not found."},404);
+      return json({ok:true});
+    }
+
     if (["device_heartbeat","device_location","device_poll","device_ack"].includes(action)) {
       const deviceId = String(body.deviceId || "");
       const secret = String(body.sessionSecret || "");
@@ -200,6 +238,38 @@ Deno.serve(async (req) => {
     const owner = await ownerFrom(req);
     if (!owner) return json({ error: "Sign in required." }, 401);
 
+
+    if (action === "owner_signal_send" || action === "owner_signal_poll") {
+      const enrollmentId = String(body.enrollmentId || "");
+      const { data: enrollment, error: findError } = await admin.from("phantom_web_enrollments")
+        .select("id").eq("id", enrollmentId).eq("owner_user_id", owner.id).neq("status","revoked").maybeSingle();
+      if (findError || !enrollment) return json({error:"Enrolled browser not found or revoked."},404);
+      if (action === "owner_signal_send") {
+        const message = body.message;
+        if (!message || typeof message !== "object" || JSON.stringify(message).length > 16000) return json({error:"Invalid signaling message."},400);
+        const {error} = await admin.from("phantom_web_signals").insert({enrollment_id:enrollmentId,sender_role:"owner",message});
+        if (error) throw error;
+        return json({ok:true});
+      }
+      const after=String(body.after||new Date(Date.now()-30000).toISOString());
+      const {data,error}=await admin.from("phantom_web_signals").select("id,message,created_at")
+        .eq("enrollment_id",enrollmentId).eq("sender_role","device").gt("created_at",after).order("created_at").limit(100);
+      if(error) throw error;
+      return json({signals:data||[]});
+    }
+    if (action === "send_command") {
+      const enrollmentId=String(body.enrollmentId||"");
+      const command=String(body.command||"");
+      if(!["ring","lost_mode","clear_lost_mode"].includes(command)) return json({error:"Unsupported browser command."},400);
+      const {data:enrollment,error:findError}=await admin.from("phantom_web_enrollments")
+        .select("id").eq("id",enrollmentId).eq("owner_user_id",owner.id).neq("status","revoked").maybeSingle();
+      if(findError||!enrollment) return json({error:"Enrolled browser not found or revoked."},404);
+      const {data,error}=await admin.from("phantom_web_commands").insert({
+        owner_user_id:owner.id,enrollment_id:enrollmentId,command,payload:{},status:"queued"
+      }).select("id,command,status").single();
+      if(error) throw error;
+      return json({command:data});
+    }
 
     if (action === "create_device_invite") {
       const label = String(body.label || "My Android").trim().slice(0,80);
