@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
     if (action === "owner_revoke_device") {
       const deviceId = String(body.deviceId || "");
       const { data, error } = await admin.from("phantom_devices").update({
-        status: "revoked", revoked_at: new Date().toISOString(), session_hash: randomToken(), updated_at: new Date().toISOString()
+        status: "revoked", revoked_at: new Date().toISOString(), session_hash: null, updated_at: new Date().toISOString()
       }).eq("id", deviceId).eq("owner_user_id", owner.id).select("id").maybeSingle();
       if (error) throw error;
       if (!data) return json({ error: "Device not found." }, 404);
