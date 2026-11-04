@@ -48,7 +48,7 @@ PHANTOM tables have RLS enabled and the Edge Function performs owner/device auth
 
 ## Android agent (0.2.0 foundation integrated)
 
-The Android app now has a one-time owner-issued enrollment code, app-private session credential, visible foreground-service heartbeat, battery/network telemetry, polling recovery command queue, visible ring/lost-mode/recovery-message notifications, one-shot user-approved last-known location upload, and dashboard controls for listing, commanding and revoking enrolled Android devices.
+The Android app now has a one-time owner-issued enrollment code, Android Keystore-protected session credential, visible foreground-service heartbeat, battery/network telemetry, polling recovery command queue, visible ring/lost-mode/recovery-message notifications, one-shot user-approved last-known location upload, and dashboard controls for listing, commanding and revoking enrolled Android devices.
 
 Enrollment: sign in to the dashboard → Enrollment links → Native Android enrollment code → Generate Android code → paste it into the Android app and enroll. The code is single-use and expires after 15 minutes.
 
