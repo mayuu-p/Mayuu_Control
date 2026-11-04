@@ -27,7 +27,7 @@ Web MVP tables (added in a separate additive migration):
 - `phantom_web_enrollments`: owner-scoped browser enrollment, session secret hash, consent timestamp, limited metadata, observed IP and last seen.
 - `phantom_web_locations`: GPS points submitted only after an explicit user click and browser permission.
 
-All new tables have RLS enabled. Invitation/session writes use the trusted Edge Function. Owner reads are scoped by `auth.uid()`. No existing dairy, barber or other app tables are modified by PHANTOM migrations.
+PHANTOM tables have RLS enabled and the Edge Function performs owner/device authorization using the server-side key. Review Supabase Security Advisor findings before production; do not assume RLS-enabled tables are safe without appropriate policies and grants. No existing dairy, barber or other app tables are modified by PHANTOM migrations.
 
 ## Setup / test
 
@@ -46,10 +46,14 @@ All new tables have RLS enabled. Invitation/session writes use the trusted Edge 
 - Browser metadata is deliberately limited; no invasive fingerprinting.
 - A browser must stay open to send heartbeats. This is a web session monitor, not an Android device-management agent.
 
-## Android stage (not yet integrated)
+## Android agent (0.2.0 foundation integrated)
 
-The `android/` folder is a starter only. It does not yet send telemetry to this web dashboard or receive recovery commands. A later Android release requires visible installation, Android permissions, app signing, secure device keys, and user-approved capabilities. IMEI collection is intentionally excluded.
+The Android app now has a one-time owner-issued enrollment code, app-private session credential, visible foreground-service heartbeat, battery/network telemetry, polling recovery command queue, visible ring/lost-mode/recovery-message notifications, one-shot user-approved last-known location upload, and dashboard controls for listing, commanding and revoking enrolled Android devices.
+
+Enrollment: sign in to the dashboard → Enrollment links → Native Android enrollment code → Generate Android code → paste it into the Android app and enroll. The code is single-use and expires after 15 minutes.
+
+Current limits: command delivery uses 30-second polling, not FCM; the Android foreground service can still be stopped by force-stop, OS battery rules, OEM process management, reboot or network loss. Location is one-shot after a user action, not continuous background tracking. Native MediaProjection screen sharing, remote lock, SIM-change detection, FCM, hardware-backed device keys and signed command envelopes are not implemented. The screen-share command currently only displays a notification asking the user to open the app; it does not capture the screen. Camera/mic remain excluded from unattended recovery.
 
 ## Known limits
 
-This is a functional web MVP for consent-based browser enrollment, not a complete Android recovery product. It does not provide remote lock, alarm, background GPS, SIM-change detection, or reliable monitoring after the browser is closed. Do not advertise those capabilities until the Android agent and its security tests are implemented.
+This is an integrated MVP foundation, not a certified production anti-theft product. Android heartbeat and commands require the app to be installed, enrolled and allowed to run its visible foreground service. Android OS restrictions can interrupt it. No 24/7 guarantee, remote lock, continuous background GPS, SIM-change detection, FCM push, native screen sharing, or stealth operation is provided. The Android project has not yet been built and tested on a physical handset in this environment.
