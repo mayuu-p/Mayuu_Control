@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+dependencies {
+    implementation("androidx.core:core-ktx:1.15.0")
+}
+
 android {
     namespace = "com.mayuu.phantomrecover"
     compileSdk = 35
