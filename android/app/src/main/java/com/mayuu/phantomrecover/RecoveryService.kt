@@ -90,8 +90,12 @@ class RecoveryService : Service() {
                             .put("commandId", command.getString("id")).put("success", success))
                     }
                 }
-            } catch (_: Exception) {
-                // Retry on the next foreground-service cycle after transient network errors.
+            } catch (error: Exception) {
+                // Retry transient network failures. A revoked/invalid session is cleared locally.
+                if (error.message?.contains("HTTP 401") == true) {
+                    prefs.edit().remove("device_id").remove("session_secret").apply()
+                    stopSelf()
+                }
             }
         }
     }
