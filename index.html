@@ -29,7 +29,7 @@
 <div class="page" id="devices"><div class="card"><h2>Enrolled devices / browsers</h2><p class="sub">Browser data is real where the browser exposes it. Android-agent-only capabilities remain unavailable until the Android app is installed and connected.</p><div class="tablewrap"><table><thead><tr><th>LABEL</th><th>STATUS</th><th>PUBLIC IP</th><th>DEVICE MODEL</th><th>OS / BROWSER</th><th>BATTERY</th><th>LAST SEEN</th><th>ACTION</th></tr></thead><tbody id="deviceRows"><tr><td colspan="8">Loading…</td></tr></tbody></table></div></div></div>
 <div class="page" id="capabilities"><div class="card"><h2>Device capability status</h2><p class="sub">Status is based on the actual connected browser session. Android-only functions are marked pending, not falsely shown as active.</p><div id="capabilityMatrix" class="capgrid"></div></div></div>
 <div class="page" id="invites"><div class="grid cols"><div class="card"><h2>Create enrollment link</h2><p class="muted">Each link is single-use and expires after 30 minutes.</p><div class="field"><label>Device / person label</label><input id="inviteLabel" maxlength="80" placeholder="e.g. My Android phone"></div><button class="btn primary" id="createInvite">Generate secure link</button><div id="newLink" class="hidden"><div class="linkbox" id="linkText"></div><div class="row"><button class="btn" id="copyLink">Copy link</button><span class="muted" id="expiry"></span></div></div></div><div class="card"><h2>How enrollment works</h2><ol class="muted"><li>Generate a one-time link.</li><li>Open it on the device/browser owner wants to enroll.</li><li>Person reads the disclosure and chooses to consent.</li><li>Dashboard receives limited browser data and server-observed IP.</li><li>GPS is separate and opt-in.</li></ol></div></div></div>
-<div class="page" id="locations"><div class="card"><h2>Consent-based location history</h2><p class="sub">Only coordinates shared after a user action and browser permission are shown.</p><div class="tablewrap"><table><thead><tr><th>ENROLLED DEVICE</th><th>LATITUDE</th><th>LONGITUDE</th><th>ACCURACY</th><th>CAPTURED</th></tr></thead><tbody id="locationRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></div></div>
+<div class="page" id="locations"><div class="card"><h2>Live location map</h2><p class="sub">Latest consented GPS point. Keep the enrolled browser open while sharing.</p><div id="liveMap" class="map">No location shared yet.</div><h2 style="margin-top:18px">Consent-based location history</h2><p class="sub">Only coordinates shared after a user action and browser permission are shown.</p><div class="tablewrap"><table><thead><tr><th>ENROLLED DEVICE</th><th>LATITUDE</th><th>LONGITUDE</th><th>ACCURACY</th><th>CAPTURED</th></tr></thead><tbody id="locationRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></div></div>
 </section>
 
 <section id="enrollView" class="hidden auth card">
@@ -102,4 +102,66 @@ async function heartbeat(){const id=sessionStorage.getItem("phantom_enrollment_i
 $("shareLocation").onclick=()=>{if(!navigator.geolocation){toast("This browser does not support GPS location");return}navigator.geolocation.getCurrentPosition(async p=>{try{await api("location",{enrollmentId:sessionStorage.getItem("phantom_enrollment_id"),sessionSecret:sessionStorage.getItem("phantom_session_secret"),latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy},false);toast("Your location was shared with the owner")}catch(e){toast(e.message)}},e=>toast(e.message),{enableHighAccuracy:true,timeout:15000,maximumAge:0})};
 $("stopSharing").onclick=()=>{sessionStorage.removeItem("phantom_enrollment_id");sessionStorage.removeItem("phantom_session_secret");$("gpsArea").classList.add("hidden");$("enrollMessage").textContent="This browser session has ended. No further heartbeats or location updates will be sent."};
 const {data:{session}}=await sb.auth.getSession();if(session&&!inviteToken)await ownerMode();else if(!inviteToken)show("authView");
+
+let phantomLiveWatch = null;
+const originalLocationShare = $("shareLocation").onclick;
+$("shareLocation").textContent = "Start live location sharing";
+$("shareLocation").onclick = () => {
+  if (!navigator.geolocation) { toast("GPS is not supported by this browser"); return; }
+  if (phantomLiveWatch !== null) return;
+  const enrollmentId = sessionStorage.getItem("phantom_enrollment_id");
+  const sessionSecret = sessionStorage.getItem("phantom_session_secret");
+  if (!enrollmentId || !sessionSecret) { toast("No active enrolled session"); return; }
+  phantomLiveWatch = navigator.geolocation.watchPosition(async position => {
+    try {
+      await api("location", {
+        enrollmentId, sessionSecret,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy
+      }, false);
+      $("enrollMessage").textContent = "Live location sharing active · " + new Date().toLocaleTimeString();
+    } catch (error) {
+      toast(error.message);
+      navigator.geolocation.clearWatch(phantomLiveWatch);
+      phantomLiveWatch = null;
+    }
+  }, error => {
+    toast(error.message);
+    if (phantomLiveWatch !== null) navigator.geolocation.clearWatch(phantomLiveWatch);
+    phantomLiveWatch = null;
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 });
+  $("enrollMessage").textContent = "Requesting GPS permission. Keep this browser page open.";
+  toast("Live GPS sharing requested");
+};
+const originalStopSharing = $("stopSharing").onclick;
+$("stopSharing").textContent = "Stop sharing and end session";
+$("stopSharing").onclick = () => {
+  if (phantomLiveWatch !== null) navigator.geolocation.clearWatch(phantomLiveWatch);
+  phantomLiveWatch = null;
+  if (originalStopSharing) originalStopSharing();
+};
+const originalRefresh = refresh;
+refresh = async function() {
+  await originalRefresh();
+  const point = locationsData[0];
+  const map = $("liveMap");
+  if (!map) return;
+  if (!point) { map.textContent = "No user-approved location shared yet."; return; }
+  const lat = Number(point.latitude), lng = Number(point.longitude);
+  map.innerHTML = "";
+  const label = document.createElement("b");
+  label.textContent = point.phantom_web_enrollments?.label || "Enrolled browser";
+  const coords = document.createElement("p");
+  coords.className = "muted";
+  coords.textContent = lat.toFixed(6) + ", " + lng.toFixed(6) + " · " + fmt(point.captured_at);
+  const link = document.createElement("a");
+  link.className = "btn";
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.href = "https://www.openstreetmap.org/?mlat=" + lat + "&mlon=" + lng + "#map=17/" + lat + "/" + lng;
+  link.textContent = "Open on map ↗";
+  map.append(label, coords, link);
+};
+
 </script></body></html>
