@@ -118,23 +118,38 @@ let ownerPc=null, ownerMediaTimer=null, ownerSignalCursor=new Date(Date.now()-15
 let devicePc=null, deviceMediaStream=null, deviceFacing="user", deviceMediaTimer=null, deviceSignalCursor=new Date(Date.now()-15000).toISOString(), mediaRequestPending=false;
 const rtcConfig={iceServers:[{urls:"stun:stun.l.google.com:19302"},{urls:"stun:stun1.l.google.com:19302"}]};
 async function sendOwnerSignal(enrollmentId,message){await api("owner_signal_send",{enrollmentId,message})}
-function waitIceGathering(pc){return new Promise((resolve,reject)=>{if(pc.iceGatheringState==="complete")return resolve();const timer=setTimeout(()=>reject(new Error("ICE gathering timed out; check network connectivity")),12000);pc.addEventListener("icegatheringstatechange",()=>{if(pc.iceGatheringState==="complete"){clearTimeout(timer);resolve()}},{once:false})})}
+// Trickle ICE avoids blocking setup while slow mobile networks gather candidates.
+const pendingOwnerCandidates=[],pendingDeviceCandidates=[];
+let ownerPollBusy=false,devicePollBusy=false;
+const seenOwnerSignals=new Set(),seenDeviceSignals=new Set();
+function queueRemoteCandidate(pc,queue,candidate){if(!candidate)return;if(!pc||!pc.remoteDescription){queue.push(candidate);return}pc.addIceCandidate(candidate).catch(e=>console.warn("ICE candidate rejected",e))}
+async function flushRemoteCandidates(pc,queue){if(!pc||!pc.remoteDescription)return;while(queue.length){const c=queue.shift();try{await pc.addIceCandidate(c)}catch(e){console.warn("Queued ICE candidate rejected",e)}}}
 async function sendDeviceSignal(message){const enrollmentId=sessionStorage.getItem("phantom_enrollment_id"),sessionSecret=sessionStorage.getItem("phantom_session_secret");await api("device_signal_send",{enrollmentId,sessionSecret,message},false)}
 function closeOwnerMedia(){if(ownerMediaTimer)clearInterval(ownerMediaTimer);ownerMediaTimer=null;if(ownerPc){ownerPc.ontrack=null;ownerPc.close();ownerPc=null}const v=$("remoteVideo");if(v){v.pause();v.srcObject=null}activeMediaEnrollment=null;$("remoteMediaStatus").textContent="Disconnected"}
 async function requestLiveMedia(enrollmentId,kind){
  closeOwnerMedia();activeMediaEnrollment=enrollmentId;ownerSignalCursor=new Date(Date.now()-15000).toISOString();
- ownerPc=new RTCPeerConnection(rtcConfig);ownerPc.ontrack=e=>{const v=$("remoteVideo");if(v.srcObject!==e.streams[0])v.srcObject=e.streams[0];$("remoteMediaStatus").textContent="Live stream connected · "+new Date().toLocaleTimeString()};
+ pendingOwnerCandidates.length=0;seenOwnerSignals.clear();ownerPollBusy=false;
+ ownerPc=new RTCPeerConnection(rtcConfig);
+ ownerPc.ontrack=e=>{const v=$("remoteVideo");if(v.srcObject!==e.streams[0])v.srcObject=e.streams[0];v.play?.().catch(()=>{});$("remoteMediaStatus").textContent="Live stream connected · "+new Date().toLocaleTimeString()};
+ ownerPc.onicecandidate=e=>{if(e.candidate&&activeMediaEnrollment)sendOwnerSignal(activeMediaEnrollment,{type:"candidate",candidate:e.candidate.toJSON()}).catch(err=>console.warn("Owner ICE send",err))};
  ownerPc.onconnectionstatechange=()=>{$("remoteMediaStatus").textContent="Connection: "+ownerPc.connectionState};
- 
  await sendOwnerSignal(enrollmentId,{type:"request",kind,requestedAt:new Date().toISOString()});
- $("remoteMediaStatus").textContent="Request sent. Waiting for the enrolled user to approve and choose what to share…";
- if(ownerMediaTimer)clearInterval(ownerMediaTimer);ownerMediaTimer=setInterval(pollOwnerSignals,1000);pollOwnerSignals();
+ $("remoteMediaStatus").textContent="Request sent. Waiting for the enrolled user to approve…";
+ if(ownerMediaTimer)clearInterval(ownerMediaTimer);ownerMediaTimer=setInterval(pollOwnerSignals,900);pollOwnerSignals();
 }
 async function requestMediaKind(kind){if(!activeMediaEnrollment){toast("Select a device and start a media session first.");return}try{await sendOwnerSignal(activeMediaEnrollment,{type:"request",kind});toast("Permission request sent to the enrolled device.")}catch(e){toast(e.message)}}
 async function sendMediaControl(control){if(!activeMediaEnrollment||!ownerPc||ownerPc.connectionState!=="connected"){toast("No active media connection.");return}try{await sendOwnerSignal(activeMediaEnrollment,{type:"control",control});toast("Control sent: "+control)}catch(e){toast(e.message)}}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-owner-control]");if(b)sendMediaControl(b.dataset.ownerControl)});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-owner-media]");if(b)requestMediaKind(b.dataset.ownerMedia)});
-async function pollOwnerSignals(){if(!ownerPc||!activeMediaEnrollment)return;try{const r=await api("owner_signal_poll",{enrollmentId:activeMediaEnrollment,after:ownerSignalCursor});for(const s of r.signals||[]){ownerSignalCursor=s.created_at;const m=s.message;if(m.type==="offer"){await ownerPc.setRemoteDescription(m.description);const answer=await ownerPc.createAnswer();await ownerPc.setLocalDescription(answer);await waitIceGathering(ownerPc);await sendOwnerSignal(activeMediaEnrollment,{type:"answer",description:ownerPc.localDescription.toJSON()})}else if(m.type==="candidate"&&m.candidate){try{await ownerPc.addIceCandidate(m.candidate)}catch(e){console.warn("ICE candidate",e)}}else if(m.type==="stop"){closeOwnerMedia();$("remoteMediaStatus").textContent="Sharing stopped by enrolled user";}}}catch(e){$("remoteMediaStatus").textContent="Signaling error: "+e.message}}
+async function pollOwnerSignals(){
+ if(ownerPollBusy||!ownerPc||!activeMediaEnrollment)return;ownerPollBusy=true;
+ try{const r=await api("owner_signal_poll",{enrollmentId:activeMediaEnrollment,after:ownerSignalCursor});
+ for(const sig of r.signals||[]){if(seenOwnerSignals.has(sig.id))continue;seenOwnerSignals.add(sig.id);ownerSignalCursor=sig.created_at;const m=sig.message;
+ if(m.type==="offer"){if(ownerPc.signalingState!=="stable")continue;await ownerPc.setRemoteDescription(m.description);await flushRemoteCandidates(ownerPc,pendingOwnerCandidates);const answer=await ownerPc.createAnswer();await ownerPc.setLocalDescription(answer);await sendOwnerSignal(activeMediaEnrollment,{type:"answer",description:ownerPc.localDescription.toJSON()})}
+ else if(m.type==="candidate"&&m.candidate)queueRemoteCandidate(ownerPc,pendingOwnerCandidates,m.candidate);
+ else if(m.type==="stop"){closeOwnerMedia();$("remoteMediaStatus").textContent="Sharing stopped by enrolled user";break;}
+ }}catch(e){$("remoteMediaStatus").textContent="Signaling error: "+e.message}finally{ownerPollBusy=false}
+}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-media-kind]");if(b)requestLiveMedia(b.dataset.id,b.dataset.mediaKind).catch(err=>toast(err.message))});
 $("stopRemoteMedia").onclick=async()=>{if(activeMediaEnrollment){try{await sendOwnerSignal(activeMediaEnrollment,{type:"stop"})}catch{}}closeOwnerMedia()};
 async function startDeviceMedia(kind){
@@ -153,10 +168,14 @@ async function startDeviceMedia(kind){
   else if(kind==="camera")stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
   else stream=await navigator.mediaDevices.getUserMedia({video:false,audio:true});
   deviceMediaStream=stream;if(kind==="front")deviceFacing="user";else if(kind==="back")deviceFacing="environment";
-  devicePc=new RTCPeerConnection(rtcConfig);devicePc.onconnectionstatechange=()=>{$("mediaShareStatus").textContent="Connection: "+devicePc.connectionState};
+  pendingDeviceCandidates.length=0;seenDeviceSignals.clear();
+  devicePc=new RTCPeerConnection(rtcConfig);
+  devicePc.onconnectionstatechange=()=>{$("mediaShareStatus").textContent="Connection: "+devicePc.connectionState};
+  devicePc.onicecandidate=e=>{if(e.candidate)sendDeviceSignal({type:"candidate",candidate:e.candidate.toJSON()}).catch(err=>console.warn("Device ICE send",err))};
   stream.getTracks().forEach(t=>{devicePc.addTrack(t,stream);t.addEventListener("ended",()=>{$("mediaShareStatus").textContent="A shared track ended. Stop or start a new session."})});
-  const offer=await devicePc.createOffer();await devicePc.setLocalDescription(offer);await waitIceGathering(devicePc);await sendDeviceSignal({type:"offer",description:devicePc.localDescription.toJSON()});
-  $("mediaShareStatus").textContent="Sharing "+kind+" · browser permission granted. Keep this tab open.";
+  const offer=await devicePc.createOffer();await devicePc.setLocalDescription(offer);
+  await sendDeviceSignal({type:"offer",description:devicePc.localDescription.toJSON()});
+  $("mediaShareStatus").textContent="Permission granted · connecting…";
  }catch(err){$("mediaShareStatus").textContent="Could not start sharing: "+err.message;toast(err.message)}
 }
 $("approveMediaRequest").onclick=()=>{$("mediaConsentModal").classList.add("hidden");const k=window.pendingMediaKind||"cameraMic";if(k==="location"){if(!navigator.geolocation){toast("GPS is not supported");return}if(phantomLiveWatch!==null)return;const enrollmentId=sessionStorage.getItem("phantom_enrollment_id"),sessionSecret=sessionStorage.getItem("phantom_session_secret");phantomLiveWatch=navigator.geolocation.watchPosition(async p=>{try{await api("location",{enrollmentId,sessionSecret,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy},false);$("enrollMessage").textContent="Live location sharing active · "+new Date().toLocaleTimeString()}catch(e){toast(e.message)}},e=>{toast(e.message);if(phantomLiveWatch!==null)navigator.geolocation.clearWatch(phantomLiveWatch);phantomLiveWatch=null},{enableHighAccuracy:true,timeout:20000,maximumAge:5000});$("enrollMessage").textContent="Requesting GPS permission. Keep this page open.";return}$("mediaShareArea").classList.remove("hidden");startDeviceMedia(k)};
@@ -175,14 +194,14 @@ async function applyDeviceMediaControl(control){
  throw new Error("Unsupported media control.");
 }
 async function pollDeviceMediaSignals(){
- const enrollmentId=sessionStorage.getItem("phantom_enrollment_id"),sessionSecret=sessionStorage.getItem("phantom_session_secret");if(!enrollmentId||!sessionSecret)return;
- try{const r=await api("device_signal_poll",{enrollmentId,sessionSecret,after:deviceSignalCursor},false);for(const s of r.signals||[]){deviceSignalCursor=s.created_at;const m=s.message;
-  if(m.type==="request"){mediaRequestPending=true;window.pendingMediaKind=m.kind||"cameraMic";const names={cameraMic:"camera and microphone",front:"front camera",back:"back camera",mic:"microphone",screen:"screen mirror",location:"live GPS location"};$("mediaConsentText").textContent="The owner requested "+(names[window.pendingMediaKind]||"live media")+". Allow only if you agree. Your browser will then show its native permission prompt or screen picker.";$("mediaConsentModal").classList.remove("hidden")}
-  else if(m.type==="answer"&&devicePc){await devicePc.setRemoteDescription(m.description);$("mediaShareStatus").textContent="Live connection established."}
-  else if(m.type==="candidate"&&devicePc){try{await devicePc.addIceCandidate(m.candidate)}catch(err){console.warn("ICE candidate",err)}}
+ if(devicePollBusy)return;const enrollmentId=sessionStorage.getItem("phantom_enrollment_id"),sessionSecret=sessionStorage.getItem("phantom_session_secret");if(!enrollmentId||!sessionSecret)return;devicePollBusy=true;
+ try{const r=await api("device_signal_poll",{enrollmentId,sessionSecret,after:deviceSignalCursor},false);for(const sig of r.signals||[]){if(seenDeviceSignals.has(sig.id))continue;seenDeviceSignals.add(sig.id);deviceSignalCursor=sig.created_at;const m=sig.message;
+  if(m.type==="request"){if(mediaRequestPending)continue;mediaRequestPending=true;window.pendingMediaKind=m.kind||"cameraMic";const names={cameraMic:"camera and microphone",front:"front camera",back:"back camera",mic:"microphone",screen:"screen mirror",location:"live GPS location"};$("mediaConsentText").textContent="The owner requested "+(names[window.pendingMediaKind]||"live media")+". Allow only if you agree. Your browser will then show its native permission prompt or screen picker.";$("mediaConsentModal").classList.remove("hidden")}
+  else if(m.type==="answer"&&devicePc){if(devicePc.signalingState==="have-local-offer"){await devicePc.setRemoteDescription(m.description);await flushRemoteCandidates(devicePc,pendingDeviceCandidates);$("mediaShareStatus").textContent="Answer received · "+devicePc.connectionState}}
+  else if(m.type==="candidate"&&devicePc)queueRemoteCandidate(devicePc,pendingDeviceCandidates,m.candidate);
   else if(m.type==="control"){try{await applyDeviceMediaControl(m.control)}catch(e){$("mediaShareStatus").textContent=e.message}}
   else if(m.type==="stop"){if(deviceMediaStream){deviceMediaStream.getTracks().forEach(t=>t.stop());deviceMediaStream=null}if(devicePc){devicePc.close();devicePc=null}mediaRequestPending=false;$("mediaShareArea").classList.add("hidden");$("mediaShareStatus").textContent="Owner ended the session"}
- }}catch(err){console.warn("media signaling",err.message)}
+ }}catch(err){console.warn("media signaling",err.message)}finally{devicePollBusy=false}
 }
 $("stopMedia").onclick=async()=>{try{await sendDeviceSignal({type:"stop"})}catch{}if(deviceMediaStream){deviceMediaStream.getTracks().forEach(t=>t.stop());deviceMediaStream=null}if(devicePc){devicePc.close();devicePc=null}mediaRequestPending=false;$("mediaShareArea").classList.add("hidden");$("mediaShareStatus").textContent="Sharing stopped"};
 
