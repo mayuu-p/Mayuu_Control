@@ -38,7 +38,7 @@
 <label class="check"><input type="checkbox" id="consent"> I understand and voluntarily agree to share the limited browser/device information and server-observed IP described above.</label>
 <label class="check"><input type="checkbox" id="locationConsent"> I also want to share my current GPS location now. My browser will ask for location permission.</label>
 <button class="btn primary" id="acceptEnroll" disabled>Agree and enroll this browser</button><p class="muted" id="enrollMessage">You can close this page without enrolling.</p>
-<div id="mediaShareArea" class="hidden notice"><b>Live sharing controls</b><p class="muted">Only start sharing after you see the owner request. Your browser will display its own screen/camera/microphone permission prompt and sharing indicator.</p><div class="row"><button class="btn primary" id="shareScreen">Share screen</button><button class="btn" id="shareCamera">Share camera</button><button class="btn" id="shareMic">Share microphone</button><button class="btn danger" id="stopMedia">Stop media sharing</button></div><p id="mediaShareStatus" class="muted">No live session requested.</p></div><div id="gpsArea" class="hidden"><hr style="border-color:#26384b;margin:20px 0"><h2>Optional location sharing</h2><p class="muted">Location is off by default. Tap below and approve the browser's location prompt if you want to share a GPS point. If you selected the GPS checkbox during enrollment, this button is still required to trigger the browser permission prompt.</p><button class="btn" id="shareLocation">Share my current location</button><button class="btn ghost" id="stopSharing">End this browser session</button></div>
+<div id="mediaShareArea" class="hidden notice"><b>Live sharing</b><p class="muted">Choose what you agree to share. Your browser will show its own permission prompts. Screen capture is available only on browsers that support it.</p><div class="row"><button class="btn primary" id="shareCameraMic">Camera + mic</button><button class="btn" id="shareFrontCamera">Front camera</button><button class="btn" id="shareBackCamera">Back camera</button><button class="btn" id="shareMic">Microphone only</button><button class="btn" id="shareScreen">Screen mirror</button><button class="btn danger" id="stopMedia">Stop sharing</button></div><p id="mediaShareStatus" class="muted">Waiting for your choice.</p></div><div id="gpsArea" class="hidden"><hr style="border-color:#26384b;margin:20px 0"><h2>Optional location sharing</h2><p class="muted">Location is off by default. Tap below and approve the browser's location prompt if you want to share a GPS point. If you selected the GPS checkbox during enrollment, this button is still required to trigger the browser permission prompt.</p><button class="btn" id="shareLocation">Share my current location</button><button class="btn ghost" id="stopSharing">End this browser session</button></div>
 </section>
 <p class="foot">PHANTOM RECOVER · Web MVP · Consent-first · No covert tracking · v1.0</p>
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
@@ -117,14 +117,20 @@ async function requestLiveMedia(enrollmentId){
  $("remoteMediaStatus").textContent="Request sent. Waiting for the enrolled user to approve and choose what to share…";
  if(ownerMediaTimer)clearInterval(ownerMediaTimer);ownerMediaTimer=setInterval(pollOwnerSignals,1000);pollOwnerSignals();
 }
-async function pollOwnerSignals(){if(!ownerPc||!activeMediaEnrollment)return;try{const r=await api("owner_signal_poll",{enrollmentId:activeMediaEnrollment,after:ownerSignalCursor});for(const s of r.signals||[]){ownerSignalCursor=s.created_at;const m=s.message;if(m.type==="offer"){await ownerPc.setRemoteDescription(m.description);const answer=await ownerPc.createAnswer();await ownerPc.setLocalDescription(answer);await waitIceGathering(ownerPc);await sendOwnerSignal(activeMediaEnrollment,{type:"answer",description:ownerPc.localDescription.toJSON()})}else if(m.type==="candidate"&&m.candidate){try{await ownerPc.addIceCandidate(m.candidate)}catch(e){console.warn("ICE candidate",e)}}}}catch(e){$("remoteMediaStatus").textContent="Signaling error: "+e.message}}
+async function pollOwnerSignals(){if(!ownerPc||!activeMediaEnrollment)return;try{const r=await api("owner_signal_poll",{enrollmentId:activeMediaEnrollment,after:ownerSignalCursor});for(const s of r.signals||[]){ownerSignalCursor=s.created_at;const m=s.message;if(m.type==="offer"){await ownerPc.setRemoteDescription(m.description);const answer=await ownerPc.createAnswer();await ownerPc.setLocalDescription(answer);await waitIceGathering(ownerPc);await sendOwnerSignal(activeMediaEnrollment,{type:"answer",description:ownerPc.localDescription.toJSON()})}else if(m.type==="candidate"&&m.candidate){try{await ownerPc.addIceCandidate(m.candidate)}catch(e){console.warn("ICE candidate",e)}}else if(m.type==="stop"){closeOwnerMedia();$("remoteMediaStatus").textContent="Sharing stopped by enrolled user";}}}catch(e){$("remoteMediaStatus").textContent="Signaling error: "+e.message}}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-media-request]");if(b)requestLiveMedia(b.dataset.mediaRequest).catch(err=>toast(err.message))});
 $("stopRemoteMedia").onclick=async()=>{if(activeMediaEnrollment){try{await sendOwnerSignal(activeMediaEnrollment,{type:"stop"})}catch{}}closeOwnerMedia()};
 async function startDeviceMedia(kind){
  if(!mediaRequestPending){toast("Wait for the owner to request a session first.");return}
  try{
+  if(!navigator.mediaDevices)throw new Error("Media permissions require HTTPS and a supported browser.");
   let stream;
-  if(kind==="screen")stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+  if(kind==="screen"){
+   if(typeof navigator.mediaDevices.getDisplayMedia!=="function")throw new Error("Screen mirroring is not supported by this browser/device. Try a supported desktop browser; Android Chrome may not expose screen capture.");
+   stream=await navigator.mediaDevices.getDisplayMedia({video:true});
+  } else if(kind==="cameraMic")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:true});
+  else if(kind==="front")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});
+  else if(kind==="back")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
   else if(kind==="camera")stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
   else stream=await navigator.mediaDevices.getUserMedia({video:false,audio:true});
   if(!devicePc){devicePc=new RTCPeerConnection(rtcConfig);devicePc.onconnectionstatechange=()=>{$("mediaShareStatus").textContent="Connection: "+devicePc.connectionState};}
@@ -135,8 +141,11 @@ async function startDeviceMedia(kind){
  }catch(err){$("mediaShareStatus").textContent="Could not start sharing: "+err.message;toast(err.message)}
 }
 $("shareScreen").onclick=()=>startDeviceMedia("screen");
-$("shareCamera").onclick=()=>startDeviceMedia("camera");
+$("shareCameraMic").onclick=()=>startDeviceMedia("cameraMic");
+$("shareFrontCamera").onclick=()=>startDeviceMedia("front");
+$("shareBackCamera").onclick=()=>startDeviceMedia("back");
 $("shareMic").onclick=()=>startDeviceMedia("mic");
+if(!navigator.mediaDevices||typeof navigator.mediaDevices.getDisplayMedia!=="function"){$("shareScreen").disabled=true;$("shareScreen").title="Screen capture is not supported in this browser";}
 async function pollDeviceMediaSignals(){
  const enrollmentId=sessionStorage.getItem("phantom_enrollment_id"),sessionSecret=sessionStorage.getItem("phantom_session_secret");if(!enrollmentId||!sessionSecret)return;
  try{const r=await api("device_signal_poll",{enrollmentId,sessionSecret,after:deviceSignalCursor},false);for(const s of r.signals||[]){deviceSignalCursor=s.created_at;const m=s.message;
@@ -146,7 +155,7 @@ async function pollDeviceMediaSignals(){
   else if(m.type==="stop"){if(devicePc){devicePc.getSenders().forEach(x=>x.track?.stop());devicePc.close();devicePc=null}mediaRequestPending=false;$("mediaShareArea").classList.add("hidden");$("mediaShareStatus").textContent="Owner ended the session"}
  }}catch(err){console.warn("media signaling",err.message)}
 }
-$("stopMedia").onclick=()=>{if(devicePc){devicePc.getSenders().forEach(x=>x.track?.stop());devicePc.close();devicePc=null}mediaRequestPending=false;$("mediaShareArea").classList.add("hidden");$("mediaShareStatus").textContent="Sharing stopped"};
+$("stopMedia").onclick=async()=>{try{await sendDeviceSignal({type:"stop"})}catch{}if(devicePc){devicePc.getSenders().forEach(x=>x.track?.stop());devicePc.close();devicePc=null}mediaRequestPending=false;$("mediaShareArea").classList.add("hidden");$("mediaShareStatus").textContent="Sharing stopped"};
 
 let deviceCommandTimer=null, ringTimer=null, ringContext=null;
 function stopRing(){if(ringTimer)clearInterval(ringTimer);ringTimer=null;if(ringContext){ringContext.close().catch(()=>{});ringContext=null}}
