@@ -146,7 +146,8 @@ async function pollDeviceMediaSignals(){
  }}catch(err){console.warn("media signaling",err.message)}
 }
 $("stopMedia").onclick=()=>{if(devicePc){devicePc.getSenders().forEach(x=>x.track?.stop());devicePc.close();devicePc=null}mediaRequestPending=false;$("mediaShareArea").classList.add("hidden");$("mediaShareStatus").textContent="Sharing stopped"};
-\nlet deviceCommandTimer=null, ringTimer=null, ringContext=null;
+
+let deviceCommandTimer=null, ringTimer=null, ringContext=null;
 function stopRing(){if(ringTimer)clearInterval(ringTimer);ringTimer=null;if(ringContext){ringContext.close().catch(()=>{});ringContext=null}}
 function playRing(){stopRing();try{ringContext=new (window.AudioContext||window.webkitAudioContext)();const ctx=ringContext;const beep=()=>{if(ctx.state==="closed")return;const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type="sine";osc.frequency.value=880;gain.gain.value=.13;osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.35)};beep();ringTimer=setInterval(beep,900);setTimeout(stopRing,25000)}catch(e){toast("Audio alert unavailable")}}
 async function pollDeviceCommands(){const id=sessionStorage.getItem("phantom_enrollment_id"),secret=sessionStorage.getItem("phantom_session_secret");if(!id||!secret)return;try{const out=await api("device_poll",{enrollmentId:id,sessionSecret:secret},false);for(const c of out.commands||[]){let success=true;if(c.command==="ring"){playRing();toast("Owner sent a ring alert")}else if(c.command==="lost_mode"){$("lostModeOverlay").classList.remove("hidden")}else if(c.command==="clear_lost_mode"){$("lostModeOverlay").classList.add("hidden")}else success=false;await api("command_ack",{enrollmentId:id,sessionSecret:secret,commandId:c.id,success},false)}}catch(e){console.warn("command poll",e.message)}}
