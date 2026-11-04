@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       if (action === "device_poll") {
         const { data: commands, error: cmdError } = await admin.from("phantom_device_commands")
           .select("id,command_type,payload,nonce,expires_at,created_at")
-          .eq("device_id", deviceId).eq("status", "pending").gt("expires_at", now).order("created_at").limit(20);
+          .eq("device_id", deviceId).in("status", ["pending","delivered"]).gt("expires_at", now).order("created_at").limit(20);
         if (cmdError) throw cmdError;
         const ids = (commands || []).map((c: {id:string}) => c.id);
         if (ids.length) {
@@ -220,6 +220,17 @@ Deno.serve(async (req) => {
         .eq("owner_user_id", owner.id).order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       return json({ devices: data || [] });
+    }
+    if (action === "owner_device_locations") {
+      const { data: owned, error: ownedError } = await admin.from("phantom_devices").select("id").eq("owner_user_id", owner.id);
+      if (ownedError) throw ownedError;
+      const ids = (owned || []).map((x: {id:string}) => x.id);
+      if (!ids.length) return json({ locations: [] });
+      const { data, error } = await admin.from("phantom_device_locations")
+        .select("id,device_id,latitude,longitude,accuracy_m,captured_at")
+        .in("device_id", ids).order("captured_at", { ascending: false }).limit(100);
+      if (error) throw error;
+      return json({ locations: data || [] });
     }
     if (action === "owner_device_command") {
       const deviceId = String(body.deviceId || "");
