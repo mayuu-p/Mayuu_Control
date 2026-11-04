@@ -137,7 +137,6 @@ async function startDeviceMedia(kind){
   stream.getTracks().forEach(t=>{devicePc.addTrack(t,stream);t.addEventListener("ended",()=>{$("mediaShareStatus").textContent="A shared track ended. Stop or start a new session."})});
   const offer=await devicePc.createOffer();await devicePc.setLocalDescription(offer);await waitIceGathering(devicePc);await sendDeviceSignal({type:"offer",description:devicePc.localDescription.toJSON()});
   $("mediaShareStatus").textContent="Sharing "+kind+" · browser permission granted. Keep this tab open.";
-  $("stopMedia").onclick=()=>{stream.getTracks().forEach(t=>t.stop());if(devicePc){devicePc.close();devicePc=null}mediaRequestPending=false;$("mediaShareStatus").textContent="Sharing stopped";$("mediaShareArea").classList.add("hidden")};
  }catch(err){$("mediaShareStatus").textContent="Could not start sharing: "+err.message;toast(err.message)}
 }
 $("shareScreen").onclick=()=>startDeviceMedia("screen");
