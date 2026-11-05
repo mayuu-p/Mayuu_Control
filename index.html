@@ -196,31 +196,63 @@ async function pollOwnerSignals(){
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-media-kind]");if(b)requestLiveMedia(b.dataset.id,b.dataset.mediaKind).catch(err=>toast(err.message))});
 $("stopRemoteMedia").onclick=async()=>{if(activeMediaEnrollment){try{await sendOwnerSignal(activeMediaEnrollment,{type:"stop"})}catch{}}closeOwnerMedia()};
+function screenCaptureCapability(){
+ const secure=window.isSecureContext;
+ const api=!!(navigator.mediaDevices&&typeof navigator.mediaDevices.getDisplayMedia==="function");
+ const ua=navigator.userAgent||"";
+ const ios=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+ return {secure,api,ios,supported:secure&&api};
+}
 async function startDeviceMedia(kind){
  if(!mediaRequestPending){toast("Wait for the owner to request a session first.");return}
+ const status=$("mediaShareStatus");
  try{
-
+  if(!window.isSecureContext)throw new Error("Open this enrolled page over HTTPS. Browser media APIs are blocked on insecure pages.");
+  if(!navigator.mediaDevices)throw new Error("This browser does not expose media capture. Update the browser and allow site permissions.");
   if(deviceMediaStream){deviceMediaStream.getTracks().forEach(t=>t.stop());deviceMediaStream=null}
-  if(devicePc){devicePc.close();devicePc=null}  if(!navigator.mediaDevices)throw new Error("Media permissions require HTTPS and a supported browser.");
+  if(devicePc){devicePc.close();devicePc=null}
   let stream;
   if(kind==="screen"){
-   if(typeof navigator.mediaDevices.getDisplayMedia!=="function")throw new Error("This browser does not provide the Screen Capture API. Screen mirroring cannot run from this website in this browser. Open the enrolled page in a browser/device that supports getDisplayMedia.");
-   stream=await navigator.mediaDevices.getDisplayMedia({video:true});
-  } else if(kind==="cameraMic")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:true});
-  else if(kind==="front")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});
+   const cap=screenCaptureCapability();
+   if(!cap.supported){
+    const hint=cap.ios?"iPhone/iPad browser screen capture is not consistently available. Use the native Android app or a supported desktop browser.":"This browser does not expose Screen Capture API. Try an updated Chrome/Edge desktop or supported Android browser.";
+    throw new Error(hint);
+   }
+   // Must be called directly from the user's Allow click; the browser/OS screen picker is mandatory.
+   stream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:15,max:30}},audio:false});
+  } else if(kind==="cameraMic")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"user"}},audio:true});
+  else if(kind==="front")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"user"}},audio:false});
   else if(kind==="back")stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
   else if(kind==="camera")stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
   else stream=await navigator.mediaDevices.getUserMedia({video:false,audio:true});
   deviceMediaStream=stream;if(kind==="front")deviceFacing="user";else if(kind==="back")deviceFacing="environment";
   pendingDeviceCandidates.length=0;seenDeviceSignals.clear();
   devicePc=new RTCPeerConnection(rtcConfig);
-  devicePc.onconnectionstatechange=()=>{$("mediaShareStatus").textContent="Connection: "+devicePc.connectionState};
+  devicePc.onconnectionstatechange=()=>{
+   if(!devicePc)return;
+   status.textContent="Connection: "+devicePc.connectionState;
+   if(devicePc.connectionState==="failed")status.textContent="Connection failed. This network may require a TURN relay; try another Wi-Fi/mobile network.";
+  };
+  devicePc.oniceconnectionstatechange=()=>{if(devicePc&&["failed","disconnected"].includes(devicePc.iceConnectionState))status.textContent="Network path "+devicePc.iceConnectionState+". Keep this page open and retry on another network."};
   devicePc.onicecandidate=e=>{if(e.candidate)sendDeviceSignal({type:"candidate",candidate:e.candidate.toJSON()}).catch(err=>console.warn("Device ICE send",err))};
-  stream.getTracks().forEach(t=>{devicePc.addTrack(t,stream);t.addEventListener("ended",()=>{$("mediaShareStatus").textContent="A shared track ended. Stop or start a new session."})});
+  stream.getTracks().forEach(t=>{
+   devicePc.addTrack(t,stream);
+   t.addEventListener("ended",()=>{
+    status.textContent="Sharing stopped by device/browser.";
+    sendDeviceSignal({type:"stop"}).catch(()=>{});
+    if(deviceMediaStream){deviceMediaStream.getTracks().forEach(x=>x.stop());deviceMediaStream=null}
+    if(devicePc){devicePc.close();devicePc=null}
+    mediaRequestPending=false;
+   },{once:true});
+  });
   const offer=await devicePc.createOffer();await devicePc.setLocalDescription(offer);
   await sendDeviceSignal({type:"offer",description:devicePc.localDescription.toJSON()});
-  $("mediaShareStatus").textContent="Permission granted · connecting…";
- }catch(err){$("mediaShareStatus").textContent="Could not start sharing: "+err.message;toast(err.message)}
+  status.textContent=kind==="screen"?"Screen approved · connecting…":"Permission granted · connecting…";
+ }catch(err){
+  if(deviceMediaStream){deviceMediaStream.getTracks().forEach(t=>t.stop());deviceMediaStream=null}
+  if(devicePc){devicePc.close();devicePc=null}
+  status.textContent="Could not start sharing: "+err.message;toast(err.message);
+ }
 }
 $("approveMediaRequest").onclick=()=>{$("mediaConsentModal").classList.add("hidden");const k=window.pendingMediaKind||"cameraMic";if(k==="location"){if(!navigator.geolocation){toast("GPS is not supported");return}if(phantomLiveWatch!==null)return;const enrollmentId=sessionStorage.getItem("phantom_enrollment_id"),sessionSecret=sessionStorage.getItem("phantom_session_secret");phantomLiveWatch=navigator.geolocation.watchPosition(async p=>{try{await api("location",{enrollmentId,sessionSecret,latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy},false);$("enrollMessage").textContent="Live location sharing active · "+new Date().toLocaleTimeString()}catch(e){toast(e.message)}},e=>{toast(e.message);if(phantomLiveWatch!==null)navigator.geolocation.clearWatch(phantomLiveWatch);phantomLiveWatch=null},{enableHighAccuracy:true,timeout:20000,maximumAge:5000});$("enrollMessage").textContent="Requesting GPS permission. Keep this page open.";return}$("mediaShareArea").classList.remove("hidden");startDeviceMedia(k)};
 $("denyMediaRequest").onclick=async()=>{$("mediaConsentModal").classList.add("hidden");mediaRequestPending=false;try{await sendDeviceSignal({type:"stop"})}catch{}};
@@ -229,7 +261,12 @@ $("shareCameraMic").onclick=()=>startDeviceMedia("cameraMic");
 $("shareFrontCamera").onclick=()=>startDeviceMedia("front");
 $("shareBackCamera").onclick=()=>startDeviceMedia("back");
 $("shareMic").onclick=()=>startDeviceMedia("mic");
-if(!navigator.mediaDevices||typeof navigator.mediaDevices.getDisplayMedia!=="function"){$("shareScreen").disabled=true;$("shareScreen").title="Screen capture is not supported in this browser";}
+{
+ const cap=screenCaptureCapability();
+ $("shareScreen").disabled=!cap.supported;
+ $("shareScreen").title=cap.supported?"Your browser can request screen capture; OS approval is still required.":(cap.ios?"iOS browser screen capture is not consistently supported.":"Screen Capture API unavailable or page is not HTTPS.");
+ $("mediaShareStatus").textContent=cap.supported?"Screen share ready · approval required on this device.":(cap.ios?"iPhone/iPad: use a supported native sharing flow.":"Screen sharing unavailable in this browser.");
+}
 async function applyDeviceMediaControl(control){
  if(!deviceMediaStream||!devicePc)throw new Error("No active media stream.");
  if(control==="camera-toggle"){const t=deviceMediaStream.getVideoTracks()[0];if(!t)throw new Error("No camera track in this session.");t.enabled=!t.enabled;$("mediaShareStatus").textContent="Camera "+(t.enabled?"ON":"OFF");return}
