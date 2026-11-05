@@ -3,6 +3,7 @@ package com.mayuu.phantomrecover
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -42,6 +43,13 @@ class RecoveryService : Service() {
         handler.post(loop)
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            working = false
+            handler.removeCallbacks(loop)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (!prefs.contains("device_id") || DeviceSecrets.read(this).isNullOrBlank()) {
             stopSelf()
             return START_NOT_STICKY
@@ -125,10 +133,19 @@ class RecoveryService : Service() {
             manager.createNotificationChannel(NotificationChannel("phantom_recovery", "PHANTOM recovery", NotificationManager.IMPORTANCE_HIGH))
         }
     }
-    private fun buildNotification(text: String): Notification =
-        NotificationCompat.Builder(this, "phantom_recovery").setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+    private fun buildNotification(text: String): Notification {
+        val openApp = PendingIntent.getActivity(this, 4104, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val stopAction = PendingIntent.getService(this, 4105,
+            Intent(this, RecoveryService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return NotificationCompat.Builder(this, "phantom_recovery")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle("PHANTOM RECOVER is active").setContentText(text)
+            .setContentIntent(openApp)
+            .addAction(android.R.drawable.ic_media_pause, "Stop protection", stopAction)
             .setOngoing(true).setCategory(NotificationCompat.CATEGORY_SERVICE).build()
+    }
     private fun notifyUser(title: String, message: String) {
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(),
@@ -142,4 +159,8 @@ class RecoveryService : Service() {
         super.onDestroy()
     }
     override fun onBind(intent: Intent?): IBinder? = null
+
+    companion object {
+        private const val ACTION_STOP = "com.mayuu.phantomrecover.ACTION_STOP_RECOVERY"
+    }
 }
