@@ -93,7 +93,7 @@ const SUPABASE_KEY = "sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
 const FUNCTION_URL = SUPABASE_URL + "/functions/v1/phantom-web";
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
-let ownerData = [], locationsData = [], currentInvite = "", poller = null;
+let ownerData = [], locationsData = [], nativeDevicesData = [], nativeLocationsData = [], currentInvite = "", poller = null;
 function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",3200)}
 function show(id){["authView","ownerView","enrollView"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 async function browserInfo(){const ua=navigator.userAgentData;let high={};if(ua?.getHighEntropyValues){try{high=await ua.getHighEntropyValues(["model","platformVersion","fullVersionList"])}catch{}}let battery=null;if(navigator.getBattery){try{const b=await navigator.getBattery();battery={level:Math.round(b.level*100),charging:b.charging}}catch{}}return {userAgent:navigator.userAgent,platform:ua?.platform||navigator.platform||"Unknown",platformVersion:high.platformVersion||null,model:high.model||null,browser:high.fullVersionList?.map(x=>x.brand+" "+x.version).join(", ")||ua?.brands?.map(x=>x.brand+" "+x.version).join(", ")||"Browser (UA)",language:navigator.language||"",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"",screen:(screen.width||0)+"x"+(screen.height||0),touchPoints:navigator.maxTouchPoints||0,hardwareConcurrency:navigator.hardwareConcurrency||null,mediaSupport:{cameraMic:!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia),screenCapture:!!(navigator.mediaDevices&&typeof navigator.mediaDevices.getDisplayMedia==="function"),geolocation:!!navigator.geolocation},battery}}
@@ -102,25 +102,33 @@ function fmt(t){return t?new Date(t).toLocaleString():"—"}
 function safe(v){return String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function deviceName(x){const b=x.browser_info||{};return [b.platform,b.browser].filter(Boolean).join(" · ")||"Browser"}
 function liveStatus(x){if(x.status==="revoked")return "revoked";return Date.now()-new Date(x.last_seen_at).getTime()<90000?"online":"offline"}
-function renderCapabilities(){const latest=ownerData[0],b=latest?.browser_info||{};const rows=[
-["Browser/device session",latest?"Connected with consent":"No enrollment","Browser session"],
-["Device model",b.model||"Not exposed by this browser",b.model?"Browser-reported":"Android agent needed for fuller model data"],
-["Operating system",[b.platform,b.platformVersion].filter(Boolean).join(" ")||"Limited browser platform data","Browser-reported"],
-["Public IP",latest?.observed_public_ip||"Waiting for server heartbeat","Server-observed"],
-["GPS",locationsData.length?("Last shared "+fmt(locationsData[0].captured_at)):"Not shared yet","Requires explicit user permission"],
-["Battery",b.battery?(b.battery.level+"% · "+(b.battery.charging?"Charging":"Not charging")):"Unsupported / not exposed","Browser support dependent"],
-["IMEI","Unavailable","Not exposed to ordinary websites; generally restricted on Android"],
-["SIM / SIM-change alert","Unavailable","Requires supported Android/OEM capability; not guaranteed"],
-["Android recovery alarm", "Native agent command queue", "Visible foreground service and notification required"],
-["Android heartbeat", "Native agent command queue", "30-second retry loop while Android allows the foreground service"],
-["Browser ring alert",latest?"Command queue enabled":"No enrolled browser","Target browser must stay open; browser audio policy applies"],
-["Browser recovery screen",latest?"Command queue enabled":"No enrolled browser","Visible in enrolled browser tab only"],
-["Screen sharing","Not connected","Requires Android app and visible OS approval"]
-];$("capabilityMatrix").innerHTML=rows.map((r,i)=>'<div class="caprow"><div><b>'+safe(r[0])+'</b><div class="muted">'+safe(r[2])+'</div></div><div class="capvalue">'+safe(r[1])+'</div></div>').join("")}
+function renderCapabilities(){
+ const latest=ownerData.find(x=>liveStatus(x)==="online")||ownerData[0],b=latest?.browser_info||{};
+ const now=Date.now(),nativeOnline=nativeDevicesData.filter(x=>x.status!=="revoked"&&now-new Date(x.last_seen_at||0).getTime()<120000);
+ const nativeLatest=nativeOnline[0]||nativeDevicesData.find(x=>x.status!=="revoked");
+ const nativeLoc=nativeLocationsData[0],browserLoc=locationsData[0];
+ const screen=!!b.mediaSupport?.screenCapture;
+ const rows=[
+ [ "Browser/device session",latest?(liveStatus(latest)==="online"?"Connected · recent heartbeat":"Enrolled · browser offline"):"No browser enrollment","Requires enrolled browser tab to remain open"],
+ [ "Device model",b.model||nativeLatest?.model||"Not exposed","Browser-reported or Android-agent reported"],
+ [ "Operating system",[b.platform,b.platformVersion].filter(Boolean).join(" ")||nativeLatest?.android_version||"Not reported","Browser / Android report"],
+ [ "Public IP",latest?.observed_public_ip||"Unavailable","Server-observed for browser enrollment only; native IP is not stored"],
+ [ "GPS",browserLoc?("Browser · "+fmt(browserLoc.captured_at)):nativeLoc?("Android · "+fmt(nativeLoc.captured_at)):"Not shared","One-time user action and OS/browser location permission required"],
+ [ "Battery",nativeLatest?.battery_percent!=null?(nativeLatest.battery_percent+"% · Android agent"):b.battery?(b.battery.level+"% · "+(b.battery.charging?"Charging":"Not charging")):"Not exposed","Native Android heartbeat or supported browser Battery API"],
+ [ "IMEI","Unavailable","Not exposed to ordinary websites; Android restricts access"],
+ [ "SIM / SIM-change alert","Unavailable","Not implemented; Android/OEM access is restricted"],
+ [ "Android recovery alarm",nativeOnline.length?"Available · enrolled Android online":nativeLatest?"Queued only · Android agent offline":"Unavailable · no Android agent","Visible foreground service and notification; delivery requires device online"],
+ [ "Android heartbeat",nativeOnline.length?"Active · recent heartbeat":nativeLatest?"Stale · no heartbeat in last 2 minutes":"Unavailable · no Android agent","30-second foreground-service loop; OS may stop it"],
+ [ "Browser ring alert",latest&&liveStatus(latest)==="online"?"Command queue available":"Unavailable · browser offline","Target browser tab must remain open; audio policy applies"],
+ [ "Browser recovery screen",latest&&liveStatus(latest)==="online"?"Command queue available":"Unavailable · browser offline","Visible in enrolled browser tab only"],
+ [ "Screen sharing",screen?"Browser API available · approval required":"Browser capture unsupported / not reported","Browser screen capture only on supported browsers; native Android MediaProjection stream is not implemented"]
+ ];
+ $("capabilityMatrix").innerHTML=rows.map(r=>'<div class="caprow"><div><b>'+safe(r[0])+'</b><div class="muted">'+safe(r[2])+'</div></div><div class="capvalue">'+safe(r[1])+'</div></div>').join("");
+}
 async function refresh(){
  const {data:{user}}=await sb.auth.getUser();if(!user)return;
  const [d,l,native,nativeLoc]=await Promise.all([sb.from("phantom_web_enrollments").select("*").order("created_at",{ascending:false}),sb.from("phantom_web_locations").select("*,phantom_web_enrollments(label,owner_user_id)").order("captured_at",{ascending:false}).limit(100),api("owner_devices"),api("owner_device_locations")]);
- if(d.error)throw d.error;if(l.error)throw l.error;ownerData=d.data||[];locationsData=(l.data||[]).filter(x=>x.phantom_web_enrollments?.owner_user_id===user.id);
+ if(d.error)throw d.error;if(l.error)throw l.error;ownerData=d.data||[];locationsData=(l.data||[]).filter(x=>x.phantom_web_enrollments?.owner_user_id===user.id);nativeDevicesData=native.devices||[];nativeLocationsData=nativeLoc.locations||[];
  const now=Date.now(), online=ownerData.filter(x=>liveStatus(x)==="online").length;
  $("total").textContent=ownerData.length;$("online").textContent=online;$("locCount").textContent=locationsData.length;$("revoked").textContent=ownerData.filter(x=>x.status==="revoked").length;
  const recent=ownerData.slice(0,5);$("recent").innerHTML=recent.length?recent.map(x=>'<div style="padding:11px 0;border-bottom:1px solid #223044"><b>'+safe(x.label)+'</b><div class="muted">'+safe(deviceName(x))+' · '+safe(x.observed_public_ip||"IP unavailable")+' · '+safe(fmt(x.last_seen_at))+'</div></div>').join(""):'<div class="empty">No real enrollments yet. Create an invite link to test.</div>';
