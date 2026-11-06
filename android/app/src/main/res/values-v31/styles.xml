@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.Phantom" parent="Theme.Phantom">
+        <item name="android:windowSplashScreenBackground">#070B13</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/phantom_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#071827</item>
+        <item name="android:postSplashScreenTheme">@style/Theme.Phantom</item>
+    </style>
+</resources>
