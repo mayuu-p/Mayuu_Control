@@ -168,6 +168,15 @@ async function handle(action: string, body: any, req: Request) {
     await audit("browser_invite_created", user.id, null, { label });
     return { token, expires_at, enrollment_url: DASHBOARD_ORIGIN.replace(/\/$/, "") + "/Mayuu_Control/enroll.html?invite=" + token };
   }
+  if (action === "device_consent_deny") {
+    const code = asText(body?.code, 64).toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(code)) throw new ApiError(400, "invalid_code", "Invalid code.");
+    const tokens = await select("phantom_enrollment_tokens", { select: "id,owner_user_id,device_label,expires_at,redeemed_at", token_hash: "eq." + await sha256(code), limit: "1" });
+    const token = tokens?.[0];
+    if (!token) throw new ApiError(404, "invalid_code", "Invalid code.");
+    await audit("consent_denied", null, null, { platform: "android", invitation_id: token.id, device_label: token.device_label });
+    return { ok: true, denied: true };
+  }
   if (action === "device_redeem") {
     requiredConsent(body);
     const code = asText(body?.code, 64).toLowerCase(), install_id = asText(body?.install_id, 36);
