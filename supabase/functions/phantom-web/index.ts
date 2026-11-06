@@ -103,7 +103,7 @@ async function webSession(req: Request) {
   const raw = req.headers.get("x-device-session") || "";
   if (raw.length < 32 || raw.length > 256) throw new ApiError(401, "invalid_web_session", "Browser session is invalid.");
   const hash = await sha256(raw);
-  const rows = await select("phantom_web_enrollments", { select: "id,owner_user_id,status,revoked_at,consented_at", session_hash: "eq." + hash, limit: "1" });
+  const rows = await select("phantom_web_enrollments", { select: "id,owner_user_id,status,revoked_at,consented_at,browser_info", session_hash: "eq." + hash, limit: "1" });
   const enrollment = rows?.[0];
   if (!enrollment) throw new ApiError(401, "invalid_web_session", "Browser session is invalid.");
   if (enrollment.status === "revoked" || enrollment.revoked_at) throw new ApiError(403, "revoked_device", "This browser enrollment has been revoked.");
@@ -115,6 +115,25 @@ async function audit(event_type: string, actor_user_id: string | null, device_id
 }
 function requiredConsent(body: any) {
   if (body?.consent !== true) throw new ApiError(400, "consent_required", "Explicit device-user consent is required.");
+}
+function sanitizeBrowserInfo(value: any) {
+  const info = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const battery = info.battery_percent == null ? null : Number(info.battery_percent);
+  const downlink = info.downlink_mbps == null ? null : Number(info.downlink_mbps);
+  const rtt = info.rtt_ms == null ? null : Number(info.rtt_ms);
+  const width = info.screen_width == null ? null : Number(info.screen_width);
+  const height = info.screen_height == null ? null : Number(info.screen_height);
+  return {
+    userAgent: asText(info.userAgent, 300) || null, platform: asText(info.platform, 80) || null,
+    language: asText(info.language, 40) || null, online: typeof info.online === "boolean" ? info.online : null,
+    network_type: asText(info.network_type, 40) || null,
+    downlink_mbps: downlink !== null && Number.isFinite(downlink) && downlink >= 0 && downlink <= 10000 ? downlink : null,
+    rtt_ms: rtt !== null && Number.isFinite(rtt) && rtt >= 0 && rtt <= 600000 ? Math.round(rtt) : null,
+    battery_percent: battery !== null && Number.isInteger(battery) && battery >= 0 && battery <= 100 ? battery : null,
+    charging: typeof info.charging === "boolean" ? info.charging : null,
+    screen_width: width !== null && Number.isInteger(width) && width >= 0 && width <= 20000 ? width : null,
+    screen_height: height !== null && Number.isInteger(height) && height >= 0 && height <= 20000 ? height : null
+  };
 }
 function validateLocation(body: any) {
   const latitude = Number(body?.latitude), longitude = Number(body?.longitude);
@@ -370,10 +389,8 @@ async function handle(action: string, body: any, req: Request) {
     const session_secret = randomHex(32);
     const rows = await insert("phantom_web_enrollments", {
       owner_user_id: invite.owner_user_id, invite_id: invite.id, label: asText(body?.label, 80) || invite.label,
-      session_hash: await sha256(session_secret), browser_info: {
-        userAgent: asText(body?.browser_info?.userAgent, 300),
-        language: asText(body?.browser_info?.language, 40)
-      }, observed_public_ip: observedIp(req), status: "online", consented_at: nowIso(), last_seen_at: nowIso()
+      session_hash: await sha256(session_secret), browser_info: sanitizeBrowserInfo(body?.browser_info),
+      observed_public_ip: observedIp(req), status: "online", consented_at: nowIso(), last_seen_at: nowIso()
     });
     const enrollment = rows?.[0];
     if (!enrollment) throw new ApiError(500, "enrollment_failed", "Browser enrollment could not be completed.");
@@ -383,7 +400,10 @@ async function handle(action: string, body: any, req: Request) {
   }
   if (action === "web_heartbeat") {
     const enrollment = await webSession(req);
-    await patch("phantom_web_enrollments", { id: "eq." + enrollment.id, status: "neq.revoked" }, { last_seen_at: nowIso(), observed_public_ip: observedIp(req), status: "online" });
+    await patch("phantom_web_enrollments", { id: "eq." + enrollment.id, status: "neq.revoked" }, {
+      last_seen_at: nowIso(), observed_public_ip: observedIp(req), status: "online",
+      browser_info: sanitizeBrowserInfo(body?.browser_info)
+    });
     return { ok: true, server_time: nowIso() };
   }
   if (action === "web_location") {
