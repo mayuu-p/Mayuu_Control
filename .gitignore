@@ -1,0 +1,14 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+supabase/.temp/
+supabase/.branches/
+
+# Android / Gradle
+.gradle/
+**/.gradle/
+**/build/
+**/local.properties
+*.jks
+*.keystore
