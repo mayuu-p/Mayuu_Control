@@ -27,3 +27,6 @@
 - Deployed `phantom-web` version 22 with Android consent-denial audit and server-side expiry marking for pending Android commands.
 - Added bounded 20-second one-shot GPS timeout on Android and a visible-notification permission gate before starting Protection.
 - Added Android local credential clearing when a session is reported expired or revoked.
+
+- Deployed `phantom-web` version 23; redirect creation now returns its server record ID for per-link aggregate analytics.
+- Dashboard now displays newly generated browser enrollment links, Android codes and redirect URLs once, with copy controls and expiry details; raw tokens remain hashed server-side.
