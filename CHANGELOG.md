@@ -23,3 +23,7 @@
 - Added redirect link creation and privacy-minimal aggregate visit tracking.
 - Added a shared original shield/diamond SVG logo for web, enrollment and redirect pages.
 - Added automated inline JavaScript syntax and public-secret hygiene validation workflow.
+
+- Deployed `phantom-web` version 22 with Android consent-denial audit and server-side expiry marking for pending Android commands.
+- Added bounded 20-second one-shot GPS timeout on Android and a visible-notification permission gate before starting Protection.
+- Added Android local credential clearing when a session is reported expired or revoked.
