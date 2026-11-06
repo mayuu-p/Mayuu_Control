@@ -34,7 +34,7 @@ async function ownerFrom(req: Request) {
   const header = req.headers.get("authorization") || "";
   if (!header.startsWith("Bearer ")) return null;
   const { data, error } = await authClient.auth.getUser(header.slice(7));
-  if (error || !data.user) return null;
+  if (error || !data.user || (data.user.email || "").toLowerCase() !== "mayur99@gmail.com") return null;
   return data.user;
 }
 Deno.serve(async (req) => {
