@@ -235,6 +235,17 @@ Deno.serve(async (req) => {
       return json({ ok: true, capturedAt: now });
     }
 
+    if (action === "redirect_visit") {
+      const raw=String(body.token||"");
+      if(!/^[a-f0-9]{64}$/.test(raw)) return json({error:"Invalid redirect link."},400);
+      const {data:invite,error}=await admin.from("phantom_web_invites").select("id,owner_user_id,label,destination_url,expires_at").eq("token_hash",await hash(raw)).maybeSingle();
+      if(error||!invite||!invite.destination_url||new Date(invite.expires_at).getTime()<Date.now()) return json({error:"Link invalid or expired."},410);
+      const ip=clientIp(req);let ipLocation:Record<string,unknown>={};
+      if(ip){try{const geo=await fetch("https://ipwho.is/"+encodeURIComponent(ip),{headers:{"Accept":"application/json"}});if(geo.ok){const g=await geo.json();if(g.success)ipLocation={city:g.city||null,region:g.region||null,country:g.country||null,latitude:g.latitude||null,longitude:g.longitude||null,accuracy:"approximate"};}}catch{}}
+      const {error:insertError}=await admin.from("phantom_redirect_clicks").insert({invite_id:invite.id,owner_user_id:invite.owner_user_id,label:invite.label,destination_url:invite.destination_url,observed_public_ip:ip,browser_info:body.browserInfo&&typeof body.browserInfo==="object"?body.browserInfo:{},ip_location:ipLocation});
+      if(insertError) throw insertError;
+      return json({destinationUrl:invite.destination_url});
+    }
     const owner = await ownerFrom(req);
     if (!owner) return json({ error: "Sign in required." }, 401);
 
@@ -283,17 +294,6 @@ Deno.serve(async (req) => {
       await admin.from("phantom_audit_logs").insert({ actor_user_id: owner.id, event_type: "android_invite_created",
         event_details: { invite_id: data.id, label, expires_at: expiresAt } });
       return json({ token, inviteId: data.id, expiresAt });
-    }
-    if (action === "redirect_visit") {
-      const raw=String(body.token||"");
-      if(!/^[a-f0-9]{64}$/.test(raw)) return json({error:"Invalid redirect link."},400);
-      const {data:invite,error}=await admin.from("phantom_web_invites").select("id,owner_user_id,label,destination_url,expires_at").eq("token_hash",await hash(raw)).maybeSingle();
-      if(error||!invite||!invite.destination_url||new Date(invite.expires_at).getTime()<Date.now()) return json({error:"Link invalid or expired."},410);
-      const ip=clientIp(req);let ipLocation:Record<string,unknown>={};
-      if(ip){try{const geo=await fetch("https://ipwho.is/"+encodeURIComponent(ip),{headers:{"Accept":"application/json"}});if(geo.ok){const g=await geo.json();if(g.success)ipLocation={city:g.city||null,region:g.region||null,country:g.country||null,latitude:g.latitude||null,longitude:g.longitude||null,accuracy:"approximate"};}}catch{}}
-      const {error:insertError}=await admin.from("phantom_redirect_clicks").insert({invite_id:invite.id,owner_user_id:invite.owner_user_id,label:invite.label,destination_url:invite.destination_url,observed_public_ip:ip,browser_info:body.browserInfo&&typeof body.browserInfo==="object"?body.browserInfo:{},ip_location:ipLocation});
-      if(insertError) throw insertError;
-      return json({destinationUrl:invite.destination_url});
     }
     if (action === "owner_devices") {
       const { data, error } = await admin.from("phantom_devices")
