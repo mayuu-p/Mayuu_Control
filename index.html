@@ -86,22 +86,24 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 <p class="foot">PHANTOM RECOVER · Web MVP · Consent-first · No covert tracking · v1.0</p>
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
 
-<script type="module">
+<script>
 const $ = id => document.getElementById(id);
 const connection = $("connection");
-connection.textContent = "Loading secure connection…";
-let createClient;
-try {
-  ({ createClient } = await import("https://esm.sh/@supabase/supabase-js@2"));
-} catch (error) {
-  connection.textContent = "Supabase SDK network error";
-  $("authMessage").textContent = "Cannot load the Supabase library. Check internet/content blocking, then reload. Details: " + (error?.message || error);
-  throw error;
+connection.textContent = "Starting secure connection…";
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('connection').textContent='Supabase SDK CDN blocked';document.getElementById('authMessage').textContent='Could not load Supabase SDK. Check internet or content blocker and reload.'"></script>
+<script>
+(async function startPhantomApp(){
+const connection = $("connection");
+if (!window.supabase || typeof window.supabase.createClient !== "function") {
+  connection.textContent = "Supabase SDK unavailable";
+  $("authMessage").textContent = "Supabase library did not load. Check internet connection and reload.";
+  return;
 }
 const SUPABASE_URL = "https://ewvirpfovwruxshzzlaa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
 const FUNCTION_URL = SUPABASE_URL + "/functions/v1/phantom-web";
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 connection.innerHTML = '<span class="dot"></span>SDK loaded · Checking connection';
 let ownerData = [], locationsData = [], nativeDevicesData = [], nativeLocationsData = [], currentInvite = "", poller = null, redirectData = [];
 function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",3200)}
@@ -411,4 +413,11 @@ refresh = async function() {
   map.append(label, coords, freshness, frame, link);
 };
 
+})().catch(error => {
+  console.error("PHANTOM startup failure:", error);
+  const status = document.getElementById("connection");
+  const message = document.getElementById("authMessage");
+  if (status) status.textContent = "Startup error";
+  if (message) message.textContent = "App could not start: " + (error?.message || String(error));
+});
 </script></body></html>
