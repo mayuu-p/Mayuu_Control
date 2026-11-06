@@ -30,3 +30,5 @@
 
 - Deployed `phantom-web` version 23; redirect creation now returns its server record ID for per-link aggregate analytics.
 - Dashboard now displays newly generated browser enrollment links, Android codes and redirect URLs once, with copy controls and expiry details; raw tokens remain hashed server-side.
+
+- Added an Android 12+ shield-branded system splash screen and reused the PHANTOM vector logo in the native app header.
