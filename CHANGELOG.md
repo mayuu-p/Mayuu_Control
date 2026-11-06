@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-06 — Redirect consent telemetry
+- Added per-redirect visitor telemetry sessions with explicit consent, optional GPS permission, live battery/charging/network/online values, 12-hour timestamps, Google Maps links and visitor stop controls.
+- Visitor telemetry is scoped to the exact redirect link and expires after two hours; raw visitor session secrets are hashed server-side.
+- Dashboard Redirect Analytics now displays only consenting visitors for the owner's redirect links, not unrelated enrolled devices.
+
 ## 2026-11-06
 - Recreated the owner dashboard foundation in `index.html` after the repository was intentionally emptied.
 - Added Supabase Auth owner sign-in for the configured owner email.
