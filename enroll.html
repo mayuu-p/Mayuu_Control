@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d18"><title>Enroll Browser · PHANTOM RECOVER</title>
+<style>
+:root{color-scheme:dark;--bg:#070b13;--panel:#0e1929;--line:#203148;--text:#eaf2ff;--muted:#8b9bb1;--cyan:#19d9f5;--blue:#428cff;--green:#36d69a;--red:#ff687c}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -15%,#0c3650,transparent 42%),var(--bg);color:var(--text);font:14px/1.6 system-ui,sans-serif;display:grid;place-items:center;padding:22px}.card{width:min(620px,100%);background:linear-gradient(145deg,#111e30,#0a121e);border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 24px 80px #0008}.brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;display:grid;place-items:center;border:1px solid #1e91b8;border-radius:13px;background:#071b2c;color:var(--cyan);font-size:24px}.brand strong{letter-spacing:.1em}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.14em}h1{font-size:25px;margin:27px 0 5px}p{color:var(--muted)}.disclosure{padding:16px;border:1px solid var(--line);border-radius:12px;background:#0a1422;margin:18px 0}.disclosure h2{font-size:14px;margin:0 0 8px}.disclosure ul{padding-left:18px;color:#c0cde0;margin:8px 0}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{border-radius:10px;padding:11px 16px;font-weight:700;border:1px solid var(--line);background:#111d2e;color:var(--text)}.primary{background:linear-gradient(110deg,#087f9b,#1559a8);border-color:#1c9fc2}.danger{border-color:#703442;background:#29131c;color:#ffb8c2}.btn:disabled{opacity:.5}.msg{padding:12px;border:1px solid var(--line);border-radius:10px;margin-top:14px;overflow-wrap:anywhere}.ok{border-color:#1c634f;color:#9cf0d2}.err{border-color:#713747;color:#ffb7c3}.control{padding:13px;border:1px solid var(--line);border-radius:10px;background:#0a1421;margin-top:12px}.control button{margin:6px 6px 0 0}.live{color:var(--green);font-weight:700}.hidden{display:none!important}
+</style></head><body><main class="card">
+<div class="brand"><div class="logo">⬡</div><div><strong>PHANTOM RECOVER</strong><small>MAYUU CONTROL · CONSENT-BASED DEVICE SECURITY</small></div></div>
+<h1>Enroll this browser</h1><p>You are being invited to connect this browser to the PHANTOM RECOVER owner account. Review the details before allowing enrollment.</p>
+<div class="disclosure"><h2>Owner and purpose</h2><p style="margin:0;color:#d5e1ef">Owner: <strong>mayur99@gmail.com</strong><br>Purpose: Personal device recovery, device status and user-approved location sharing.</p><h2 style="margin-top:16px">What enrollment does</h2><ul><li>Registers this browser with the owner dashboard.</li><li>Sends a heartbeat only while this page remains open.</li><li>Reports basic browser information and server-observed public IP.</li><li>Does not enable camera, microphone, screen sharing or GPS automatically.</li><li>Location is shared only after you press Start Location Sharing and approve the browser prompt.</li></ul><p style="margin:10px 0 0;font-size:12px">You can deny enrollment or stop the session at any time. VPNs, carrier NAT and shared networks may affect IP information. IP address is not GPS.</p></div>
+<div id="status" class="msg">Waiting for your decision. No permissions have been requested.</div>
+<div class="actions" id="consentActions"><button class="btn primary" id="allowBtn">Allow enrollment</button><button class="btn danger" id="denyBtn">Deny</button></div>
+<section id="sessionPanel" class="hidden">
+ <div class="control"><strong>Enrollment status</strong><div id="sessionStatus" class="live">Connected in this browser tab</div><small style="color:#8b9bb1">Heartbeats run only while this page is open.</small></div>
+ <div class="control"><strong>Optional one-shot / live location sharing</strong><p style="margin:5px 0">Press start to request browser geolocation. Stop sharing to end updates.</p><button class="btn primary" id="locationStart">Start Location Sharing</button><button class="btn" id="locationStop" disabled>Stop Location Sharing</button><div id="locationInfo" style="font-size:12px;color:#9db0c8;margin-top:8px">Location is off.</div></div>
+ <div class="control"><strong>Camera, microphone and screen</strong><p style="margin:5px 0">Unavailable until authenticated WebRTC transport is deployed and tested. No media permission will be requested by this page.</p></div>
+ <div class="actions"><button class="btn danger" id="stopBtn">Stop Session</button><button class="btn" id="exitBtn">Exit</button></div>
+</section>
+</main>
+<script>
+(()=> {
+ const API="https://ewvirpfovwruxshzzlaa.supabase.co/functions/v1/phantom-web";
+ const KEY="sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
+ const $=id=>document.getElementById(id);
+ const params=new URLSearchParams(location.search);
+ const invite=params.get("invite")||"";
+ let secret=sessionStorage.getItem("phantom_browser_session")||"";
+ let enrollment=sessionStorage.getItem("phantom_browser_enrollment")||"";
+ let heartbeat=null,watchId=null,stopped=false;
+ function show(text,kind=""){ $("status").className="msg "+kind;$("status").textContent=text; }
+ async function api(action,body={},device=false){
+  const headers={"Content-Type":"application/json","apikey":KEY};
+  if(device&&secret)headers["x-device-session"]=secret;
+  const r=await fetch(API,{method:"POST",headers,body:JSON.stringify({action,...body}),cache:"no-store"});
+  let data={};try{data=await r.json()}catch{}
+  if(!r.ok||data.ok===false)throw new Error(data.message||"Request failed (HTTP "+r.status+").");
+  return data;
+ }
+ function stopLocation(){
+  if(watchId!==null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);
+  watchId=null;$("locationStart").disabled=false;$("locationStop").disabled=true;$("locationInfo").textContent="Location sharing is off.";
+ }
+ function stopHeartbeat(){if(heartbeat!==null)clearInterval(heartbeat);heartbeat=null;}
+ function endLocal(){stopLocation();stopHeartbeat();secret="";sessionStorage.removeItem("phantom_browser_session");sessionStorage.removeItem("phantom_browser_enrollment");stopped=true;$("sessionPanel").classList.add("hidden");show("This browser session has ended. No background activity continues.","ok");}
+ async function heartbeatOnce(){if(!secret||stopped)return;try{await api("web_heartbeat",{},true)}catch(e){show("Connection lost: "+e.message,"err");stopHeartbeat();}}
+ function startHeartbeat(){stopHeartbeat();heartbeat=setInterval(heartbeatOnce,30000);}
+ $("allowBtn").addEventListener("click",async()=>{
+  $("allowBtn").disabled=true;show("Creating your browser enrollment…");
+  try{
+   if(!/^[0-9a-f]{64}$/i.test(invite))throw new Error("Invalid or missing invitation link.");
+   const data=await api("web_redeem",{invite,consent:true,label:"Browser · "+(navigator.platform||"Device"),browser_info:{userAgent:navigator.userAgent,language:navigator.language}});
+   secret=data.session_secret;enrollment=data.enrollment_id;
+   sessionStorage.setItem("phantom_browser_session",secret);sessionStorage.setItem("phantom_browser_enrollment",enrollment);
+   $("consentActions").classList.add("hidden");$("sessionPanel").classList.remove("hidden");
+   show("Enrollment confirmed by server. Your browser is connected only while this page remains open.","ok");startHeartbeat();
+  }catch(e){show(e.message,"err");$("allowBtn").disabled=false;}
+ });
+ $("denyBtn").addEventListener("click",()=>{$("consentActions").classList.add("hidden");show("You denied enrollment. No session was created and no permissions were requested.","ok");});
+ $("locationStart").addEventListener("click",()=>{
+  if(!secret||!navigator.geolocation){show("Location sharing is unavailable in this browser.","err");return;}
+  $("locationStart").disabled=true;$("locationStop").disabled=false;
+  watchId=navigator.geolocation.watchPosition(async pos=>{
+   if(!secret||stopped)return;
+   const coords=pos.coords;
+   $("locationInfo").textContent="Sharing · accuracy "+Math.round(coords.accuracy)+" m · "+new Date(pos.timestamp).toLocaleTimeString();
+   try{await api("web_location",{latitude:coords.latitude,longitude:coords.longitude,accuracy_m:coords.accuracy,captured_at:new Date(pos.timestamp).toISOString()},true)}
+   catch(e){show("Location upload failed: "+e.message,"err");stopLocation();}
+  },err=>{show("Location permission or GPS error: "+err.message,"err");stopLocation();},{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+ });
+ $("locationStop").addEventListener("click",stopLocation);
+ async function stopServerSession(){
+  stopLocation();stopHeartbeat();
+  if(secret){try{await api("web_session_stop",{},true)}catch(e){show("Could not confirm server session stop: "+e.message,"err");return false;}}
+  endLocal();return true;
+ }
+ $("stopBtn").addEventListener("click",async()=>{ $("stopBtn").disabled=true;await stopServerSession();$("stopBtn").disabled=false;});
+ $("exitBtn").addEventListener("click",async()=>{if(secret){const ok=await stopServerSession();if(!ok)return;}else endLocal();location.replace("https://mayuu-p.github.io/Mayuu_Control/");});
+ if(!invite){show("Missing invitation token. Ask the owner to generate a fresh browser enrollment link.","err");$("allowBtn").disabled=true;}
+})();
+</script></body></html>
