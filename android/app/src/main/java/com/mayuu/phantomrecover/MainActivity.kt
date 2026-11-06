@@ -12,6 +12,9 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
+import android.os.CancellationSignal
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.widget.Button
 import android.widget.CheckBox
@@ -36,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var consent: CheckBox
     private lateinit var enrollButton: Button
     private val locationPermissionRequest = 7102
+    private var listenerHolder: LocationListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -219,22 +223,43 @@ class MainActivity : Activity() {
         val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         status.text = "Requesting a fresh location fix…"
         try {
+            val provider = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) LocationManager.GPS_PROVIDER
+                else LocationManager.NETWORK_PROVIDER
+            val timeoutHandler = Handler(Looper.getMainLooper())
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val provider = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER
-                manager.getCurrentLocation(provider, null, mainExecutor) { location ->
-                    if (location == null) status.text = "Location unavailable or timed out." else uploadLocation(location)
+                val cancellation = CancellationSignal()
+                val timeout = Runnable {
+                    cancellation.cancel()
+                    status.text = "Location request timed out. No location was uploaded."
+                }
+                timeoutHandler.postDelayed(timeout, 20_000L)
+                manager.getCurrentLocation(provider, cancellation, mainExecutor) { location ->
+                    timeoutHandler.removeCallbacks(timeout)
+                    if (location == null) status.text = "Location unavailable. Check GPS and try again."
+                    else uploadLocation(location)
                 }
             } else {
+                val timeout = Runnable {
+                    manager.removeUpdates(listenerHolder)
+                    status.text = "Location request timed out. No location was uploaded."
+                }
                 val listener = object : LocationListener {
-                    override fun onLocationChanged(location: Location) { manager.removeUpdates(this); uploadLocation(location) }
+                    override fun onLocationChanged(location: Location) {
+                        manager.removeUpdates(this)
+                        timeoutHandler.removeCallbacks(timeout)
+                        uploadLocation(location)
+                    }
                     @Deprecated("Deprecated by Android") override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
                     override fun onProviderEnabled(provider: String) {}
                     override fun onProviderDisabled(provider: String) {}
                 }
-                val provider = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER
+                listenerHolder = listener
+                timeoutHandler.postDelayed(timeout, 20_000L)
                 manager.requestSingleUpdate(provider, listener, mainLooper)
             }
-        } catch (e: Exception) { status.text = "Location error: ${e.message}" }
+        } catch (e: Exception) {
+            status.text = "Location error: ${e.message}"
+        }
     }
 
     private fun uploadLocation(location: Location) {
