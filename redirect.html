@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d18"><title>Secure Redirect · PHANTOM RECOVER</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#070b13;color:#eaf2ff;font:14px system-ui,sans-serif;padding:20px}.card{width:min(440px,100%);padding:26px;border:1px solid #203148;border-radius:16px;background:#0e1929;text-align:center}.logo{font-size:28px;color:#19d9f5}.muted{color:#8b9bb1}.error{color:#ff9eae}</style></head><body><main class="card"><div class="logo">⬡</div><h1>PHANTOM RECOVER</h1><p id="status" class="muted">Checking secure redirect link…</p></main>
+<script>
+(async()=>{
+ const API="https://ewvirpfovwruxshzzlaa.supabase.co/functions/v1/phantom-web";
+ const KEY="sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
+ const token=new URLSearchParams(location.search).get("token")||"";
+ const status=document.getElementById("status");
+ try{
+  if(!/^[0-9a-f]{64}$/i.test(token))throw new Error("This redirect link is invalid or expired.");
+  const response=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({action:"redirect_resolve",token}),cache:"no-store"});
+  const result=await response.json();
+  if(!response.ok||result.ok===false)throw new Error(result.message||"This redirect link is invalid or expired.");
+  const destination=new URL(result.destination_url);
+  if(destination.protocol!=="https:")throw new Error("The destination is not allowed.");
+  status.textContent="Redirect confirmed. Opening destination…";
+  location.replace(destination.toString());
+ }catch(e){status.className="error";status.textContent=e.message||"Unable to complete redirect.";}
+})();
+</script></body></html>
