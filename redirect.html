@@ -5,7 +5,7 @@
 <title>Secure Redirect · PHANTOM RECOVER</title>
 <style>
 :root{color-scheme:dark;--bg:#070b13;--panel:#0e1929;--line:#203148;--text:#eaf2ff;--muted:#8b9bb1;--cyan:#19d9f5;--green:#36d69a;--red:#ff9eae}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 0,#0b2a43 0,transparent 45%),var(--bg);color:var(--text);font:14px/1.55 system-ui,sans-serif;padding:18px}
+*{box-sizing:border-box}body{visibility:hidden;margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 0,#0b2a43 0,transparent 45%),var(--bg);color:var(--text);font:14px/1.55 system-ui,sans-serif;padding:18px}
 .card{width:min(560px,100%);padding:26px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#101c2d,#0a111d);box-shadow:0 20px 70px #0007}
 .logo{font-size:28px;color:var(--cyan);text-align:center}.logo img{width:42px;height:42px;display:block;margin:auto}h1{text-align:center;font-size:20px;letter-spacing:.08em;margin:10px 0 4px}.muted{color:var(--muted)}.intro{text-align:center;margin:0 0 20px}.notice{padding:13px;border:1px solid #24506b;background:#0b1e30;border-radius:11px;margin:14px 0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0}.field{padding:12px;border:1px solid var(--line);border-radius:10px;background:#0a1422}.field strong{display:block;font-size:12px}.field small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}button,.link{border:1px solid #24506b;background:#10263a;color:#dffaff;border-radius:10px;padding:11px 14px;font:700 13px system-ui;text-decoration:none;cursor:pointer}.primary{background:linear-gradient(110deg,#087f9b,#1559a8);color:white}.danger{border-color:#703442;background:#29131c;color:#ffb8c2}.hidden{display:none!important}.status{margin-top:14px;padding:11px;border-radius:9px;border:1px solid var(--line);background:#111f31;color:#c8d7e9;overflow-wrap:anywhere}.status.ok{border-color:#1c634f;color:#9cf0d2}.status.err{border-color:#713747;color:#ffb7c3}.fine{font-size:11px;color:var(--muted);margin-top:14px}.coordinates{font-family:ui-monospace,monospace}
 @media(max-width:430px){.card{padding:19px}.fields{grid-template-columns:1fr 1fr}.actions>*{flex:1 1 100%;text-align:center}}
@@ -56,7 +56,7 @@
   if(!r.ok||data.ok===false)throw new Error(data.message||"Request failed.");
   return data;
  };
- const showError=e=>{status.className="status err";status.textContent=e.message||"Unable to process this redirect.";};
+ const showError=e=>{document.body.style.visibility="visible";status.className="status err";status.textContent=e.message||"Unable to process this redirect.";};
  const networkType=()=>{
   if(!navigator.onLine)return "Offline";
   const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
@@ -96,6 +96,7 @@
   const result=await call("redirect_resolve",{token,share_telemetry:shareTelemetry});
   destination=new URL(result.destination_url).toString();visitorSession=result.visitor_session||"";
   if(!shareTelemetry){location.replace(destination);return;}
+  document.body.style.visibility="visible";
   if(!visitorSession)throw new Error("Optional sharing session could not be created.");
   $("destinationLink").href=destination;$("deniedDestination").href=destination;
   $("consentView").classList.remove("hidden");status.textContent="Review the sharing choices above. Nothing is being collected.";
