@@ -283,7 +283,7 @@ async function handle(action: string, body: any, req: Request) {
     requiredConsent(body);
     const tokenRaw = asText(body?.invite, 64).toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(tokenRaw)) throw new ApiError(400, "invalid_invite", "Invalid browser invitation.");
-    const invites = await select("phantom_web_invites", { select: "id,owner_user_id,label,expires_at,redeemed_at", token_hash: "eq." + await sha256(tokenRaw), limit: "1" });
+    const invites = await select("phantom_web_invites", { select: "id,owner_user_id,label,expires_at,redeemed_at", token_hash: "eq." + await sha256(tokenRaw), destination_url: "is.null", limit: "1" });
     const invite = invites?.[0];
     if (!invite) throw new ApiError(404, "invalid_invite", "Invalid browser invitation.");
     if (invite.redeemed_at) throw new ApiError(409, "already_used", "This browser invitation has already been used.");
