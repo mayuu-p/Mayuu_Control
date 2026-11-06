@@ -157,7 +157,7 @@ async function handle(action: string, body: any, req: Request) {
     }) : [];
     const webLocations = enrollmentIds.length ? await select("phantom_web_locations", {
       select: "id,enrollment_id,latitude,longitude,accuracy_m,captured_at",
-      enrollment_id: inFilter(enrollmentIds), order: "captured_at.desc", limit: "200"
+      enrollment_id: inFilter(enrollmentIds), order: "captured_at.desc", limit: "1000"
     }) : [];
     const webCommands = await select("phantom_web_commands", {
       select: "id,enrollment_id,command,status,created_at,acknowledged_at,expires_at",
