@@ -85,7 +85,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
  const ONLINE_WINDOW_MS = 90_000;
  const $ = id => document.getElementById(id);
  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
- let state = {devices:[],web:[],locations:[],webLocations:[],audit:[],commands:[],webCommands:[],invites:[],tokens:[],redirects:[]};
+ let state = {devices:[],web:[],telemetry:[],locations:[],webLocations:[],audit:[],commands:[],webCommands:[],invites:[],tokens:[],redirects:[]};
  const esc = v => String(v ?? "—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const date = v => v ? new Date(v).toLocaleString() : "—";
  const ageOnline = v => !!v && (Date.now()-new Date(v).getTime() <= ONLINE_WINDOW_MS) && (Date.now()-new Date(v).getTime() >= -30000);
@@ -137,6 +137,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    const jobs = [
     ["devices",()=>loadTable("phantom_devices","id,device_label,manufacturer,model,android_version,app_version,status,battery_percent,network_type,observed_public_ip,last_seen_at,revoked_at,consented_at,last_location_at,created_at","last_seen_at")],
     ["web",()=>loadTable("phantom_web_enrollments","id,label,browser_info,observed_public_ip,status,consented_at,last_seen_at,revoked_at,created_at","last_seen_at")],
+    ["telemetry",()=>loadTable("phantom_device_telemetry","id,device_id,battery_percent,charging,network_type,observed_public_ip,recorded_at","recorded_at")],
     ["locations",()=>loadTable("phantom_device_locations","id,device_id,latitude,longitude,accuracy_m,captured_at","captured_at")],
     ["webLocations",()=>loadTable("phantom_web_locations","id,enrollment_id,latitude,longitude,accuracy_m,captured_at","captured_at")],
     ["audit",()=>loadTable("phantom_audit_logs","id,device_id,actor_user_id,event_type,event_details,created_at","created_at")],
@@ -164,8 +165,12 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    $("totalDevices").textContent=all.length;$("onlineDevices").textContent=active;$("offlineDevices").textContent=all.length-active-revoked;$("revokedDevices").textContent=revoked;$("locationCount").textContent=state.locations.length+state.webLocations.length;
    const recent=all.slice(0,6);
    $("recentDevices").innerHTML=recent.length?table(["Device","Type","Status","Last seen"],recent.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(date(d.last_seen_at))+'</td></tr>')):'<div class="empty">No enrolled devices yet.</div>';
-   $("deviceTable").innerHTML=table(["Device","Type","Status","Battery","Network","Model / Browser","Last seen","Consent"],all.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(d.battery_percent==null?"N/A":d.battery_percent+"%")+'</td><td>'+esc(d.network_type||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version].filter(Boolean).join(" "):(d.browser_info?.browser||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td></tr>'));
-   const activity=state.audit.slice(0,8);
+   const latestTelemetry=new Map();
+   for(const item of state.telemetry){const previous=latestTelemetry.get(item.device_id);if(!previous||new Date(item.recorded_at)>new Date(previous.recorded_at))latestTelemetry.set(item.device_id,item);}
+   $("deviceTable").innerHTML=table(["Device","Type","Status","Battery","Charging","Network","Model / OS / App","Public IP","Last seen","Consent","Last location"],all.map(d=>{
+    const t=d.kind==="Android"?latestTelemetry.get(d.id):null;
+    return '<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(d.battery_percent==null?(t?.battery_percent==null?"N/A":t.battery_percent+"%"):d.battery_percent+"%")+'</td><td>'+esc(t?.charging==null?"N/A":t.charging?"Yes":"No")+'</td><td>'+esc(d.network_type||t?.network_type||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version,d.app_version].filter(Boolean).join(" / "):(d.browser_info?.browser||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(d.observed_public_ip||t?.observed_public_ip||"N/A")+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td><td>'+esc(date(d.last_location_at))+'</td></tr>';
+   }));   const activity=state.audit.slice(0,8);
    $("recentActivity").innerHTML=activity.length?activity.map(a=>'<div class="list-item"><strong>'+esc(a.event_type)+'</strong><small>'+esc(date(a.created_at))+' · '+esc(a.device_id||"System")+'</small></div>').join(""):'<div class="empty">No audit events recorded.</div>';
    $("auditTable").innerHTML=table(["Event","Device","Actor","Time","Details"],state.audit.map(a=>'<tr><td>'+esc(a.event_type)+'</td><td class="mono">'+esc(a.device_id)+'</td><td class="mono">'+esc(a.actor_user_id)+'</td><td>'+esc(date(a.created_at))+'</td><td>'+esc(JSON.stringify(a.event_details||{}).slice(0,140))+'</td></tr>'));
    const locs=[...state.locations.map(l=>({...l,source:"Android",device:l.device_id})),...state.webLocations.map(l=>({...l,source:"Browser",device:l.enrollment_id}))].sort((a,b)=>new Date(b.captured_at)-new Date(a.captured_at));
