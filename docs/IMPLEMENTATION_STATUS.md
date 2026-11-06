@@ -9,7 +9,7 @@ Last checked: 2026-11-06
 - Owner Auth account: exists and email is confirmed.
 - Existing PHANTOM tables: present, zero rows at audit time.
 - Existing migration history: present.
-- Existing `phantom-web` function: restored and deployed as version 20; runtime invocation still needs end-to-end verification.
+- Existing `phantom-web` function: restored and deployed as version 22; runtime invocation still needs end-to-end verification.
 - No secret values are printed or committed.
 
 ## Phase 1 progress
@@ -22,6 +22,7 @@ Last checked: 2026-11-06
 - [x] Add expiring redirect links with privacy-minimal aggregate visit records.
 - [x] Add explicit browser consent, tab-only heartbeat, opt-in location sharing and Stop Session.
 - [x] Add owner recovery controls for one selected online Android device and browser-device revocation.
+- [x] Add Android explicit consent-denial audit, one-shot GPS timeout, 90-day session expiry and server-confirmed Stop Session.
 - [x] Restore Edge Function actions: owner allowlist, hashed device/browser sessions, enrollment expiry, revocation, validation, no-store responses.
 - [ ] Verify enrollment, heartbeat and location writes end-to-end.
 - [x] Android project and build workflow; GitHub Actions debug APK build passed.
