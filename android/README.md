@@ -3,6 +3,7 @@
 Package: `com.mayuu.phantomrecover` · Version: `0.3.0` · Minimum Android: API 26
 
 ## Implemented in this source baseline
+- Shield-branded Android 12+ system splash screen and shared PHANTOM logo in the app header.
 - One-time owner-issued 64-character enrollment code with explicit consent and an explicit Deny Enrollment audit action.
 - Session secret encrypted with Android Keystore AES-GCM. Only ciphertext and IV are stored in app-private preferences.
 - User-started visible foreground protection service with notification Stop action and server-confirmed Stop Session / Unenroll.
