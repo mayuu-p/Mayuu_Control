@@ -20,6 +20,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -60,12 +61,29 @@ class MainActivity : Activity() {
         }
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val logo = TextView(this).apply {
-            text = "⬡  PHANTOM RECOVER"; textSize = 23f
-            setTextColor(Color.rgb(25, 217, 245)); gravity = Gravity.CENTER_VERTICAL
+        val brandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val logo = ImageView(this).apply {
+            setImageResource(R.drawable.phantom_logo)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        brandRow.addView(logo, LinearLayout.LayoutParams(52, 52))
+        val brandText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(12, 0, 0, 0) }
+        val wordmark = TextView(this).apply {
+            text = "PHANTOM RECOVER"; textSize = 19f
+            setTextColor(Color.rgb(25, 217, 245))
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
-        content.addView(logo, params(LinearLayout.LayoutParams.MATCH_PARENT, 58))
+        val tagline = TextView(this).apply {
+            text = "YOUR DEVICE. YOUR CONSENT. YOUR CONTROL."
+            textSize = 9f; setTextColor(Color.rgb(111, 147, 174))
+        }
+        brandText.addView(wordmark)
+        brandText.addView(tagline)
+        brandRow.addView(brandText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        content.addView(brandRow, params(LinearLayout.LayoutParams.MATCH_PARENT, 62))
         addText(content, "YOUR DEVICE. YOUR CONSENT. YOUR CONTROL.", 10f, Color.rgb(111, 147, 174))
         addText(content, "Device security and recovery", 21f, Color.WHITE, 18)
         status = addText(content, "Checking enrollment…", 13f, Color.rgb(177, 196, 216), 10)
