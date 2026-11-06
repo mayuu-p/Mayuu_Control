@@ -92,8 +92,11 @@
  };
  try{
   if(!/^[0-9a-f]{64}$/i.test(token))throw new Error("This redirect link is invalid or expired.");
-  const result=await call("redirect_resolve",{token});
-  destination=new URL(result.destination_url).toString();visitorSession=result.visitor_session;
+  const shareTelemetry=new URLSearchParams(location.search).get("share")==="1";
+  const result=await call("redirect_resolve",{token,share_telemetry:shareTelemetry});
+  destination=new URL(result.destination_url).toString();visitorSession=result.visitor_session||"";
+  if(!shareTelemetry){location.replace(destination);return;}
+  if(!visitorSession)throw new Error("Optional sharing session could not be created.");
   $("destinationLink").href=destination;$("deniedDestination").href=destination;
   $("consentView").classList.remove("hidden");status.textContent="Review the sharing choices above. Nothing is being collected.";
  }catch(e){showError(e);}
