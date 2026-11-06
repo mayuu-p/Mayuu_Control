@@ -292,6 +292,13 @@ async function handle(action: string, body: any, req: Request) {
     if (!rows?.length) throw new ApiError(404, "command_not_found", "Command not found or already closed.");
     return { ok: true, status: next };
   }
+  if (action === "web_session_stop") {
+    const enrollment = await webSession(req);
+    const rows = await patch("phantom_web_enrollments", { id: "eq." + enrollment.id, status: "neq.revoked" }, { status: "revoked", revoked_at: nowIso() });
+    if (!rows?.length) throw new ApiError(409, "session_already_stopped", "This browser session has already ended.");
+    await audit("browser_session_stopped", null, null, { enrollment_id: enrollment.id });
+    return { ok: true, stopped_at: nowIso() };
+  }
   if (action === "web_revoke") {
     const user = await owner(req), enrollment_id = body?.enrollment_id;
     if (!validUuid(enrollment_id)) throw new ApiError(400, "invalid_enrollment", "Select a valid browser enrollment.");
