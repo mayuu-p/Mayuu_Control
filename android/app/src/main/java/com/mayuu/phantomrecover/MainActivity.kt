@@ -240,7 +240,7 @@ class MainActivity : Activity() {
                 }
             } else {
                 val timeout = Runnable {
-                    manager.removeUpdates(listenerHolder)
+                    listenerHolder?.let { manager.removeUpdates(it) }
                     status.text = "Location request timed out. No location was uploaded."
                 }
                 val listener = object : LocationListener {
