@@ -9,7 +9,7 @@ Last checked: 2026-11-06
 - Owner Auth account: exists and email is confirmed.
 - Existing PHANTOM tables: present, zero rows at audit time.
 - Existing migration history: present.
-- Existing `phantom-web` function: active deployment returning HTTP 410; it must be replaced.
+- Existing `phantom-web` function: restored and deployed as version 16; runtime invocation still needs end-to-end verification.
 - No secret values are printed or committed.
 
 ## Phase 1 progress
@@ -18,17 +18,18 @@ Last checked: 2026-11-06
 - [x] Read real PHANTOM data under RLS.
 - [x] Derive online status from server timestamps.
 - [x] Add owner-scoped read policies and revoke anonymous access to PHANTOM tables.
-- [ ] Restore secure Edge Function actions.
+- [x] Revoke authenticated client write privileges; PHANTOM writes are server-mediated.
+- [x] Restore Edge Function actions: owner allowlist, hashed device/browser sessions, enrollment expiry, revocation, validation, no-store responses.
 - [ ] Verify enrollment, heartbeat and location writes end-to-end.
-- [ ] Android project and build workflow.
+- [x] Android project and build workflow; GitHub Actions debug APK build passed.
 - [ ] Real browser/device testing.
 
 ## Feature truth table
-The dashboard intentionally marks unverified Android cryptography/service behavior as "Not verified". Browser media and WebRTC are not marked implemented. Remote lock, SIM-change detection and covert collection of private notifications/calls are excluded.
+Android Keystore AES-GCM, foreground service, heartbeat, telemetry and one-shot GPS are present in source and compile in CI; physical-device behavior remains unverified. Browser media and WebRTC are not marked implemented. Remote lock, SIM-change detection and covert collection of private notifications/calls are excluded.
 
 ## Deployment gate
 Do not call the product complete until:
-1. The Edge Function has server-side owner/device authentication, expiry and revocation checks.
+1. The Edge Function passes live owner/device authentication, expiry and revocation tests (not yet run from this environment).
 2. Enrollment tokens and device session secrets are hashed at rest.
 3. RLS and cross-owner isolation tests pass.
 4. Android Gradle builds successfully.
