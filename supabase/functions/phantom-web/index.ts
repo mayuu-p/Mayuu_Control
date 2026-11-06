@@ -234,6 +234,7 @@ async function handle(action: string, body: any, req: Request) {
   }
   if (action === "device_poll") {
     const device = await deviceSession(req);
+    await patch("phantom_device_commands", { device_id: "eq." + device.id, status: "eq.pending", expires_at: "lte." + nowIso() }, { status: "expired" });
     const commands = await select("phantom_device_commands", { select: "id,command_type,payload,nonce,expires_at,created_at", device_id: "eq." + device.id, status: "eq.pending", expires_at: "gt." + nowIso(), order: "created_at.asc", limit: "20" });
     for (const c of commands || []) await patch("phantom_device_commands", { id: "eq." + c.id, device_id: "eq." + device.id, status: "eq.pending" }, { status: "delivered" });
     return { commands: commands || [], server_time: nowIso() };
