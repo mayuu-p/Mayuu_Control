@@ -142,10 +142,11 @@ async function refresh(){
  $("locationRows").innerHTML=locationsData.length?locationsData.map(x=>'<tr><td>'+safe(x.phantom_web_enrollments?.label||"Browser")+'</td><td>'+Number(x.latitude).toFixed(6)+'</td><td>'+Number(x.longitude).toFixed(6)+'</td><td>'+safe(x.accuracy_m?Math.round(x.accuracy_m)+" m":"—")+'</td><td>'+safe(fmt(x.captured_at))+'</td></tr>').join(""):'<tr><td colspan="5" class="empty">No user-approved location points.</td></tr>';
 }
 async function ownerMode(){
- show("ownerView");$("logout").classList.remove("hidden");$("connection").innerHTML='<span class="dot"></span>Live · Supabase';
+ $("authView").classList.add("hidden");$("enrollView").classList.add("hidden");$("ownerView").classList.remove("hidden");$("ownerView").style.display="block";$("logout").classList.remove("hidden");$("connection").innerHTML='<span class="dot"></span>Live · Supabase';
  try{await refresh();}catch(e){toast("Dashboard opened, but data loading failed: "+e.message);console.error("PHANTOM dashboard refresh:",e)}
  if(poller)clearInterval(poller);poller=setInterval(()=>refresh().catch(e=>console.error("PHANTOM refresh:",e)),12000);
 }
+sb.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session?.user?.email?.toLowerCase()==="mayur99@gmail.com"){Promise.resolve().then(()=>ownerMode()).catch(e=>{console.error("Owner dashboard navigation:",e);$("authMessage").textContent="Signed in, but dashboard failed: "+e.message;});}});
 async function runAuth(){
  const email=$("email").value.trim().toLowerCase(),password=$("password").value;
  const message=$("authMessage"),signIn=$("signin");
@@ -158,9 +159,9 @@ async function runAuth(){
   if(error)throw error;
   if(!data.session)throw new Error("Login session nahi bana. Dobara try karo.");
   message.textContent="Login successful. Opening dashboard…";
-  show("ownerView");
-  $("logout").classList.remove("hidden");
   await ownerMode();
+  if($("ownerView").classList.contains("hidden")){ $("authView").classList.add("hidden");$("ownerView").classList.remove("hidden");$("ownerView").style.display="block"; }
+  window.scrollTo({top:0,behavior:"instant"});
  }catch(e){message.textContent=e.message||"Login failed.";console.error("PHANTOM auth error:",e)}
  finally{signIn.disabled=false;signIn.textContent="Sign in"}
 }
