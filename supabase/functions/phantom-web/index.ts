@@ -129,6 +129,26 @@ function validateLocation(body: any) {
   return { latitude, longitude, accuracy_m: accuracy, captured_at: captured.toISOString() };
 }
 async function handle(action: string, body: any, req: Request) {
+  if (action === "redirect_create") {
+    const user = await owner(req), label = asText(body?.label, 80), destination = asText(body?.destination_url, 2048);
+    if (!label) throw new ApiError(400, "invalid_label", "Enter a redirect label.");
+    let parsed: URL;
+    try { parsed = new URL(destination); } catch { throw new ApiError(400, "invalid_destination", "Enter a valid HTTPS destination URL."); }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) throw new ApiError(400, "invalid_destination", "Only public HTTPS destination URLs are allowed.");
+    const token = randomHex(32), expires_at = new Date(Date.now() + 90 * 24 * 60 * 60_000).toISOString();
+    await insert("phantom_web_invites", { owner_user_id: user.id, label, token_hash: await sha256(token), expires_at, destination_url: parsed.toString() });
+    await audit("redirect_link_created", user.id, null, { label, expires_at });
+    return { redirect_url: DASHBOARD_ORIGIN.replace(/\/$/, "") + "/Mayuu_Control/redirect.html?token=" + token, expires_at };
+  }
+  if (action === "redirect_resolve") {
+    const tokenRaw = asText(body?.token, 64).toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(tokenRaw)) throw new ApiError(404, "redirect_not_found", "This redirect link is invalid or expired.");
+    const links = await select("phantom_web_invites", { select: "id,owner_user_id,label,destination_url,expires_at", token_hash: "eq." + await sha256(tokenRaw), destination_url: "not.is.null", expires_at: "gt." + nowIso(), limit: "1" });
+    const link = links?.[0];
+    if (!link) throw new ApiError(404, "redirect_not_found", "This redirect link is invalid or expired.");
+    await insert("phantom_redirect_clicks", { invite_id: link.id, owner_user_id: link.owner_user_id, label: link.label, destination_url: link.destination_url });
+    return { destination_url: link.destination_url };
+  }
   if (action === "android_code_create") {
     const user = await owner(req);
     const label = asText(body?.device_label, 80);
@@ -253,7 +273,7 @@ async function handle(action: string, body: any, req: Request) {
   if (action === "web_consent_deny") {
     const tokenRaw = asText(body?.invite, 64).toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(tokenRaw)) throw new ApiError(400, "invalid_invite", "Invalid browser invitation.");
-    const invites = await select("phantom_web_invites", { select: "id,owner_user_id,label,expires_at,redeemed_at", token_hash: "eq." + await sha256(tokenRaw), limit: "1" });
+    const invites = await select("phantom_web_invites", { select: "id,owner_user_id,label,expires_at,redeemed_at", token_hash: "eq." + await sha256(tokenRaw), destination_url: "is.null", limit: "1" });
     const invite = invites?.[0];
     if (!invite) throw new ApiError(404, "invalid_invite", "Invalid browser invitation.");
     await audit("consent_denied", null, null, { platform: "browser", invite_id: invite.id, label: invite.label });
