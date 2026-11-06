@@ -52,8 +52,8 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 
 <section id="authView" class="auth card">
 <h2>Owner sign in</h2><p class="muted">Sign in with the authorized owner account.</p>
-<div class="field"><label>Email</label><input id="email" type="email" autocomplete="email" placeholder="mayur99@gmail.com"></div>
-<div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="At least 8 characters"></div>
+<div class="field"><label>Email</label><input id="email" type="email" autocomplete="email" placeholder="Enter owner email"></div>
+<div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter password (minimum 6 characters)"></div>
 <div class="row"><button class="btn primary" id="signin">Sign in</button></div>
 <p class="muted" id="authMessage">Authorized owner account only.</p>
 </section>
@@ -151,13 +151,15 @@ async function runAuth(){
  const message=$("authMessage"),signIn=$("signin");
  message.textContent="";
  if(email!=="mayur99@gmail.com"){message.textContent="This email is not authorized for the owner dashboard.";return}
- if(!password){message.textContent="Password enter karo.";return}
+ if(password.length<6){message.textContent="Password must be at least 6 characters.";return}
  signIn.disabled=true;signIn.textContent="Signing in…";
  try{
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error)throw error;
   if(!data.session)throw new Error("Login session nahi bana. Dobara try karo.");
-  message.textContent="Login successful. Dashboard loading…";
+  message.textContent="Login successful. Opening dashboard…";
+  show("ownerView");
+  $("logout").classList.remove("hidden");
   await ownerMode();
  }catch(e){message.textContent=e.message||"Login failed.";console.error("PHANTOM auth error:",e)}
  finally{signIn.disabled=false;signIn.textContent="Sign in"}
