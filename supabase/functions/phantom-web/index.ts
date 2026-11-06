@@ -130,6 +130,70 @@ function validateLocation(body: any) {
 }
 async function handle(action: string, body: any, req: Request) {
   if (action === "health") { await select("phantom_devices", { select: "id", limit: "0" }); return { status: "ready", api_version: "0.3.0", configured: true, database: "reachable" }; }
+  if (action === "dashboard_data") {
+    const user = await owner(req);
+    const devices = await select("phantom_devices", {
+      select: "id,device_label,manufacturer,model,android_version,app_version,status,battery_percent,network_type,observed_public_ip,last_seen_at,revoked_at,consented_at,last_location_at,created_at",
+      owner_user_id: "eq." + user.id, order: "last_seen_at.desc", limit: "200"
+    });
+    const web = await select("phantom_web_enrollments", {
+      select: "id,label,browser_info,observed_public_ip,status,consented_at,last_seen_at,revoked_at,created_at",
+      owner_user_id: "eq." + user.id, order: "last_seen_at.desc", limit: "200"
+    });
+    const deviceIds = (devices || []).map((d: any) => d.id).filter(validUuid);
+    const enrollmentIds = (web || []).map((d: any) => d.id).filter(validUuid);
+    const inFilter = (ids: string[]) => "in.(" + ids.join(",") + ")";
+    const telemetry = deviceIds.length ? await select("phantom_device_telemetry", {
+      select: "id,device_id,battery_percent,charging,network_type,observed_public_ip,recorded_at",
+      device_id: inFilter(deviceIds), order: "recorded_at.desc", limit: "200"
+    }) : [];
+    const locations = deviceIds.length ? await select("phantom_device_locations", {
+      select: "id,device_id,latitude,longitude,accuracy_m,captured_at",
+      device_id: inFilter(deviceIds), order: "captured_at.desc", limit: "200"
+    }) : [];
+    const commands = deviceIds.length ? await select("phantom_device_commands", {
+      select: "id,device_id,command_type,status,expires_at,acknowledged_at,completed_at,created_at",
+      device_id: inFilter(deviceIds), order: "created_at.desc", limit: "200"
+    }) : [];
+    const webLocations = enrollmentIds.length ? await select("phantom_web_locations", {
+      select: "id,enrollment_id,latitude,longitude,accuracy_m,captured_at",
+      enrollment_id: inFilter(enrollmentIds), order: "captured_at.desc", limit: "200"
+    }) : [];
+    const webCommands = await select("phantom_web_commands", {
+      select: "id,enrollment_id,command,status,created_at,acknowledged_at,expires_at",
+      owner_user_id: "eq." + user.id, order: "created_at.desc", limit: "200"
+    });
+    const allInvites = await select("phantom_web_invites", {
+      select: "id,label,destination_url,expires_at,redeemed_at,created_at",
+      owner_user_id: "eq." + user.id, order: "created_at.desc", limit: "200"
+    });
+    const tokens = await select("phantom_enrollment_tokens", {
+      select: "id,device_label,expires_at,redeemed_at,created_at",
+      owner_user_id: "eq." + user.id, order: "created_at.desc", limit: "200"
+    });
+    const redirects = await select("phantom_redirect_clicks", {
+      select: "id,invite_id,label,destination_url,clicked_at",
+      owner_user_id: "eq." + user.id, order: "clicked_at.desc", limit: "500"
+    });
+    const auditByActor = await select("phantom_audit_logs", {
+      select: "id,device_id,actor_user_id,event_type,event_details,created_at",
+      actor_user_id: "eq." + user.id, order: "created_at.desc", limit: "200"
+    });
+    const auditByDevice = deviceIds.length ? await select("phantom_audit_logs", {
+      select: "id,device_id,actor_user_id,event_type,event_details,created_at",
+      device_id: inFilter(deviceIds), order: "created_at.desc", limit: "200"
+    }) : [];
+    const auditMap = new Map<string, any>();
+    for (const row of [...(auditByActor || []), ...(auditByDevice || [])]) auditMap.set(row.id, row);
+    const auditRows = Array.from(auditMap.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 200);
+    return {
+      devices: devices || [], web: web || [], telemetry: telemetry || [], locations: locations || [],
+      webLocations: webLocations || [], audit: auditRows, commands: commands || [], webCommands: webCommands || [],
+      invites: (allInvites || []).filter((x: any) => !x.destination_url),
+      redirectLinks: (allInvites || []).filter((x: any) => !!x.destination_url),
+      tokens: tokens || [], redirects: redirects || []
+    };
+  }
   if (action === "redirect_create") {
     const user = await owner(req), label = asText(body?.label, 80), destination = asText(body?.destination_url, 2048);
     if (!label) throw new ApiError(400, "invalid_label", "Enter a redirect label.");
