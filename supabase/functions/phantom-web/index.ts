@@ -157,9 +157,9 @@ async function handle(action: string, body: any, req: Request) {
     if (!token) throw new ApiError(404, "invalid_code", "Invalid code.");
     if (token.redeemed_at) throw new ApiError(409, "already_used", "Already-used code.");
     if (new Date(token.expires_at).getTime() <= Date.now()) throw new ApiError(410, "expired_code", "Expired code.");
-    const existingRows = await select("phantom_devices", { select: "id,status,revoked_at", owner_user_id: "eq." + token.owner_user_id, install_id: "eq." + install_id, limit: "1" });
+    const existingRows = await select("phantom_devices", { select: "id,status,revoked_at,consented_at", owner_user_id: "eq." + token.owner_user_id, install_id: "eq." + install_id, limit: "1" });
     const existing = existingRows?.[0];
-    if (existing && existing.status !== "revoked" && !existing.revoked_at) throw new ApiError(409, "already_enrolled", "This installation is already enrolled.");
+    if (existing && existing.status !== "revoked" && !existing.revoked_at && existing.consented_at && Date.now() - new Date(existing.consented_at).getTime() <= 90 * 24 * 60 * 60_000) throw new ApiError(409, "already_enrolled", "This installation is already enrolled.");
     const claimed = await patch("phantom_enrollment_tokens", { id: "eq." + token.id, redeemed_at: "is.null", expires_at: "gt." + nowIso() }, { redeemed_at: nowIso() });
     if (!claimed?.length) throw new ApiError(409, "already_used", "This code has already been used or expired.");
     const session_secret = randomHex(32);
@@ -171,7 +171,7 @@ async function handle(action: string, body: any, req: Request) {
       last_seen_at: nowIso(), revoked_at: null, updated_at: nowIso()
     };
     const rows = existing
-      ? await patch("phantom_devices", { id: "eq." + existing.id, owner_user_id: "eq." + token.owner_user_id, status: "eq.revoked" }, devicePayload)
+      ? await patch("phantom_devices", { id: "eq." + existing.id, owner_user_id: "eq." + token.owner_user_id }, devicePayload)
       : await insert("phantom_devices", { owner_user_id: token.owner_user_id, install_id, ...devicePayload });
     const device = rows?.[0];
     if (!device) throw new ApiError(500, "enrollment_failed", "Device enrollment could not be completed.");
