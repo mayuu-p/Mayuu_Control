@@ -167,14 +167,15 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    $("recentDevices").innerHTML=recent.length?table(["Device","Type","Status","Last seen"],recent.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(date(d.last_seen_at))+'</td></tr>')):'<div class="empty">No enrolled devices yet.</div>';
    const latestTelemetry=new Map();
    for(const item of state.telemetry){const previous=latestTelemetry.get(item.device_id);if(!previous||new Date(item.recorded_at)>new Date(previous.recorded_at))latestTelemetry.set(item.device_id,item);}
-   $("deviceTable").innerHTML=table(["Device","Type","Status","Battery","Charging","Network","Model / OS / App","Public IP","Last seen","Consent","Last location"],all.map(d=>{
+   $("deviceTable").innerHTML=table(["Device","Type","Status","Battery","Charging","Network","Model / OS / App","Public IP","Last seen","Consent","Last location","Actions"],all.map(d=>{
     const t=d.kind==="Android"?latestTelemetry.get(d.id):null;
-    return '<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(d.battery_percent==null?(t?.battery_percent==null?"N/A":t.battery_percent+"%"):d.battery_percent+"%")+'</td><td>'+esc(t?.charging==null?"N/A":t.charging?"Yes":"No")+'</td><td>'+esc(d.network_type||t?.network_type||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version,d.app_version].filter(Boolean).join(" / "):(d.browser_info?.browser||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(d.observed_public_ip||t?.observed_public_ip||"N/A")+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td><td>'+esc(date(d.last_location_at))+'</td></tr>';
-   }));   const activity=state.audit.slice(0,8);
+    return '<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(d.battery_percent==null?(t?.battery_percent==null?"N/A":t.battery_percent+"%"):d.battery_percent+"%")+'</td><td>'+esc(t?.charging==null?"N/A":t.charging?"Yes":"No")+'</td><td>'+esc(d.network_type||t?.network_type||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version,d.app_version].filter(Boolean).join(" / "):(d.browser_info?.browser||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(d.observed_public_ip||t?.observed_public_ip||"N/A")+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td><td>'+esc(date(d.last_location_at))+'</td><td><button class="btn ghost" data-revoke-kind="'+(d.kind==="Android"?"android":"browser")+'" data-revoke-id="'+esc(d.id)+'">Revoke</button></td></tr>';
+   }));
+   const activity=state.audit.slice(0,8);
    $("recentActivity").innerHTML=activity.length?activity.map(a=>'<div class="list-item"><strong>'+esc(a.event_type)+'</strong><small>'+esc(date(a.created_at))+' · '+esc(a.device_id||"System")+'</small></div>').join(""):'<div class="empty">No audit events recorded.</div>';
    $("auditTable").innerHTML=table(["Event","Device","Actor","Time","Details"],state.audit.map(a=>'<tr><td>'+esc(a.event_type)+'</td><td class="mono">'+esc(a.device_id)+'</td><td class="mono">'+esc(a.actor_user_id)+'</td><td>'+esc(date(a.created_at))+'</td><td>'+esc(JSON.stringify(a.event_details||{}).slice(0,140))+'</td></tr>'));
    const locs=[...state.locations.map(l=>({...l,source:"Android",device:l.device_id})),...state.webLocations.map(l=>({...l,source:"Browser",device:l.enrollment_id}))].sort((a,b)=>new Date(b.captured_at)-new Date(a.captured_at));
-   $("locationTable").innerHTML=table(["Source","Device / Enrollment","Latitude","Longitude","Accuracy","Captured","Map"],locs.map(l=>'<tr><td>'+esc(l.source)+'</td><td class="mono">'+esc(l.device)+'</td><td>'+esc(l.latitude)+'</td><td>'+esc(l.longitude)+'</td><td>'+esc(l.accuracy_m==null?"N/A":l.accuracy_m+" m")+'</td><td>'+esc(date(l.captured_at))+'</td><td><a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+encodeURIComponent(l.latitude+","+l.longitude)+'">Open map ↗</a></td></tr>'));
+   $("locationTable").innerHTML=table(["Source","Device / Enrollment","Latitude","Longitude","Accuracy","Captured","Actions"],locs.map(l=>'<tr><td>'+esc(l.source)+'</td><td class="mono">'+esc(l.device)+'</td><td>'+esc(l.latitude)+'</td><td>'+esc(l.longitude)+'</td><td>'+esc(l.accuracy_m==null?"N/A":l.accuracy_m+" m")+'</td><td>'+esc(date(l.captured_at))+'</td><td><button class="btn ghost" data-copy-lat="'+esc(l.latitude)+'">Copy Lat</button> <button class="btn ghost" data-copy-lon="'+esc(l.longitude)+'">Copy Lon</button> <button class="btn ghost" data-copy-both="'+esc(l.latitude+","+l.longitude)+'">Copy Both</button> <a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+encodeURIComponent(l.latitude+","+l.longitude)+'">Open map ↗</a></td></tr>'));
    const deviceSelect=$("commandDevice");
    if(deviceSelect){const selected=deviceSelect.value;deviceSelect.innerHTML='<option value="">Select one Android device</option>'+state.devices.filter(d=>!d.revoked_at&&d.status!=="revoked").map(d=>'<option value="'+esc(d.id)+'">'+esc(d.device_label)+' · '+(ageOnline(d.last_seen_at)?"ONLINE":"OFFLINE")+'</option>').join("");if(state.devices.some(d=>d.id===selected))deviceSelect.value=selected;}
    $("commandTable").innerHTML=table(["Command","Device / Enrollment","Status","Created","Expires / Ack"],[...state.commands.map(c=>'<tr><td>'+esc(c.command_type)+'</td><td class="mono">'+esc(c.device_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.expires_at))+' / '+esc(date(c.acknowledged_at))+'</td></tr>'),...state.webCommands.map(c=>'<tr><td>'+esc(c.command)+'</td><td class="mono">'+esc(c.enrollment_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.acknowledged_at))+'</td></tr>')]);
@@ -250,6 +251,23 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    finally{button.disabled=false;button.textContent="Revoke Device";}
  });
  $("logoutBtn").addEventListener("click",async()=>{await sb.auth.signOut();showLogin();});
+ $("deviceTable").addEventListener("click",async e=>{
+   const button=e.target.closest("[data-revoke-kind]");if(!button)return;
+   const kind=button.dataset.revokeKind,id=button.dataset.revokeId;
+   const item=kind==="android"?state.devices.find(x=>x.id===id):state.web.find(x=>x.id===id);
+   if(!item)return;
+   const label=item.device_label||item.label||"selected device";
+   if(!confirm("Revoke "+kind+" access for "+label+"? This ends its current session."))return;
+   button.disabled=true;button.textContent="Revoking…";
+   try{await ownerApi(kind==="android"?"device_revoke":"web_revoke",kind==="android"?{device_id:id}:{enrollment_id:id});message("globalMsg","Server confirmed access revocation for "+label+".","success");await loadAll();}
+   catch(err){message("globalMsg",err.message,"error");button.disabled=false;button.textContent="Revoke";}
+ });
+ $("locationTable").addEventListener("click",async e=>{
+   const button=e.target.closest("[data-copy-lat],[data-copy-lon],[data-copy-both]");if(!button)return;
+   const value=button.dataset.copyLat??button.dataset.copyLon??button.dataset.copyBoth;
+   try{await copyText(value);message("globalMsg","Coordinates copied.","success");}
+   catch(err){message("globalMsg",err.message,"error");}
+ });
  $("refreshBtn").addEventListener("click",async()=>{try{await ownerSession();await loadAll();}catch(e){message("globalMsg",e.message,"error");showLogin();}});
  $("nav").addEventListener("click",e=>{const b=e.target.closest("button[data-section]");if(!b)return;document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===b.dataset.section));});
  sb.auth.onAuthStateChange(async(_event,session)=>{if(!session){showLogin();return;}if(session.user?.email?.toLowerCase()!==OWNER_EMAIL){await sb.auth.signOut();showLogin();return;}showApp(session.user);});
