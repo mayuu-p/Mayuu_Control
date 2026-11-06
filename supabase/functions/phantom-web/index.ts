@@ -26,9 +26,17 @@ function randomToken(bytes = 32) {
   return [...data].map(x => x.toString(16).padStart(2, "0")).join("");
 }
 function clientIp(req: Request) {
-  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const candidate = forwarded || req.headers.get("x-real-ip") || "";
-  return candidate.length <= 64 && /^[0-9a-fA-F:.]+$/.test(candidate) ? candidate : null;
+  // Prefer platform-provided client address headers; never read an IP supplied in the JSON body.
+  const candidates = [
+    req.headers.get("cf-connecting-ip"),
+    req.headers.get("x-real-ip"),
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+  ].filter((value): value is string => !!value);
+  for (const candidate of candidates) {
+    const ip = candidate.trim();
+    if (ip.length <= 64 && /^[0-9a-fA-F:.]+$/.test(ip)) return ip;
+  }
+  return null;
 }
 async function ownerFrom(req: Request) {
   const header = req.headers.get("authorization") || "";
