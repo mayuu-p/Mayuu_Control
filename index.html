@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080d18"><meta name="description" content="PHANTOM RECOVER — consent-based personal device recovery and security command centre.">
+<title>PHANTOM RECOVER · Mayuu Control</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%230b1930' stroke='%2300d9ff' stroke-width='3' d='M32 4 56 15v18c0 14-10 22-24 27C18 55 8 47 8 33V15z'/%3E%3Cpath fill='none' stroke='%2300d9ff' stroke-width='4' d='m32 16 12 16-12 16-12-16z'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{color-scheme:dark;--bg:#070b13;--panel:#0d1524;--panel2:#111d30;--line:#1d2b40;--text:#eaf2ff;--muted:#8292a9;--cyan:#19d9f5;--blue:#428cff;--green:#36d69a;--amber:#f5b84c;--red:#ff687c;--shadow:0 18px 60px #0007}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 70% -20%,#0b2a43 0,transparent 38%),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.48}
+a{color:var(--cyan);text-decoration:none}.hidden{display:none!important}.muted{color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.eyebrow{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan);font-weight:800}
+#loginView{min-height:100vh;display:grid;place-items:center;padding:24px}.login-card{width:min(440px,100%);padding:34px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,#101c2d,#0a111d);box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:13px}.logo{width:46px;height:46px;display:grid;place-items:center;border:1px solid #1e91b8;border-radius:14px;background:#071b2c;color:var(--cyan);font-size:25px;box-shadow:inset 0 0 24px #00d9ff18}.brand strong{font-size:18px;letter-spacing:.12em}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.16em}
+.login-card h1{font-size:27px;margin:30px 0 5px}.login-card p{color:var(--muted);margin:0 0 25px}.field{display:grid;gap:7px;margin:15px 0}.field label{font-size:12px;color:#aab9cd}.field input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:#080f1b;color:var(--text);outline:none}.field input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px #19d9f51c}
+.btn{border:1px solid #24506b;background:#10263a;color:#dffaff;border-radius:10px;padding:10px 14px;font-weight:700;transition:.18s}.btn:hover:not(:disabled){border-color:var(--cyan);transform:translateY(-1px)}.btn.primary{background:linear-gradient(110deg,#087f9b,#1559a8);border-color:#1c9fc2;color:white}.btn.ghost{background:#0a1321;border-color:var(--line)}.btn.danger{border-color:#703442;background:#29131c;color:#ffb8c2}.btn.block{width:100%;padding:13px}.msg{padding:11px 13px;border-radius:9px;background:#111f31;border:1px solid var(--line);color:#c8d7e9;margin-top:14px}.msg.error{border-color:#713747;color:#ffb7c3}.msg.success{border-color:#1c634f;color:#9cf0d2}
+#appView{min-height:100vh}.topbar{height:70px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;border-bottom:1px solid var(--line);background:#080e19eF;position:sticky;top:0;z-index:5;backdrop-filter:blur(16px)}.top-actions{display:flex;align-items:center;gap:12px}.owner{font-size:12px;color:#a9bad0}.layout{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 70px)}aside{padding:24px 14px;border-right:1px solid var(--line);background:#090f1a}.nav-label{font-size:10px;color:#5d718b;letter-spacing:.15em;padding:0 12px 10px;text-transform:uppercase}.nav{display:grid;gap:5px}.nav button{background:transparent;color:#9aabc1;border:1px solid transparent;text-align:left;padding:11px 12px;border-radius:9px;font-size:13px}.nav button.active,.nav button:hover{background:#10243a;border-color:#1d4661;color:#e6faff}.nav button.active{box-shadow:inset 2px 0 var(--cyan)}.side-foot{margin:32px 10px 0;padding-top:16px;border-top:1px solid var(--line);font-size:11px;color:#64758c}
+main{padding:30px;min-width:0;max-width:1600px;width:100%;margin:0 auto}.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-bottom:24px}.page-head h1{font-size:26px;margin:3px 0}.page-head p{color:var(--muted);margin:0}.cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px;margin-bottom:18px}.card,.panel{border:1px solid var(--line);background:linear-gradient(145deg,#101b2b,#0b1320);border-radius:14px;box-shadow:0 8px 28px #0002}.stat{padding:17px}.stat .label{color:var(--muted);font-size:11px}.stat .num{font-size:28px;font-weight:800;margin-top:7px;letter-spacing:-.04em}.stat .hint{font-size:10px;color:#60748e;margin-top:4px}.panel{padding:19px;margin-bottom:17px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.panel h2{font-size:15px;margin:0}.panel p.sub{color:var(--muted);font-size:12px;margin:4px 0 0}
+.grid2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:16px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:620px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #1b293b;white-space:nowrap;font-size:12px}th{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#8193aa;font-weight:700}td{color:#d4deed}tbody tr:last-child td{border-bottom:0}.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--line);border-radius:30px;font-size:10px;color:#b9c9dc}.dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}.pill.online .dot{background:var(--green);box-shadow:0 0 8px var(--green)}.pill.offline .dot{background:var(--amber)}.pill.revoked .dot{background:var(--red)}
+.empty{padding:26px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed #26384d;border-radius:10px}.list{display:grid;gap:10px}.list-item{padding:12px;border:1px solid #1b2a3e;border-radius:10px;background:#0a1422}.list-item strong{font-size:12px}.list-item small{display:block;color:var(--muted);margin-top:3px;font-size:11px}.cap-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.cap{padding:13px;border:1px solid var(--line);border-radius:10px;background:#0a1421}.cap strong{display:block;font-size:12px}.cap span{font-size:10px;color:var(--muted)}.section{display:none}.section.active{display:block}.section-note{padding:12px;border:1px solid #604a25;background:#211b10;color:#e9ca8a;border-radius:10px;font-size:12px;margin-bottom:16px}
+footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(--line)}
+@media(max-width:1100px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}.grid2{grid-template-columns:1fr}}
+@media(max-width:760px){.topbar{padding:0 15px;height:62px}.layout{display:block}aside{position:sticky;top:62px;z-index:4;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line);overflow:auto}.nav{display:flex;width:max-content}.nav-label,.side-foot{display:none}.nav button{white-space:nowrap;padding:9px 11px;font-size:11px}main{padding:19px 14px}.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:13px}.stat .num{font-size:24px}.page-head{align-items:flex-start;flex-direction:column}.cap-grid{grid-template-columns:1fr}.owner{display:none}.brand strong{font-size:14px}.brand small{font-size:8px}.topbar .logo{width:38px;height:38px}.panel{padding:14px}}
+@media(max-width:390px){.cards{grid-template-columns:1fr 1fr}.stat .num{font-size:21px}}
+</style>
+</head>
+<body>
+<section id="loginView">
+ <div class="login-card">
+  <div class="brand"><div class="logo">⬡</div><div><strong>PHANTOM RECOVER</strong><small>MAYUU CONTROL · DEVICE SECURITY</small></div></div>
+  <h1>Owner access</h1><p>Sign in to your private recovery command centre.</p>
+  <form id="loginForm">
+   <div class="field"><label for="email">OWNER EMAIL</label><input id="email" type="email" autocomplete="username" value="mayur99@gmail.com" required></div>
+   <div class="field"><label for="password">PASSWORD</label><input id="password" type="password" autocomplete="current-password" required></div>
+   <button class="btn primary block" id="loginBtn" type="submit">Sign in securely</button>
+  </form>
+  <div id="loginMsg" aria-live="polite"></div>
+  <p style="font-size:11px;margin:20px 0 0">Access is restricted to the configured owner account. Your password is never stored by this page.</p>
+ </div>
+</section>
+<section id="appView" class="hidden">
+ <header class="topbar">
+  <div class="brand"><div class="logo">⬡</div><div><strong>PHANTOM RECOVER</strong><small>SECURITY COMMAND CENTRE</small></div></div>
+  <div class="top-actions"><span class="owner" id="ownerLabel">Owner session</span><button class="btn ghost" id="refreshBtn">↻ Refresh</button><button class="btn danger" id="logoutBtn">Sign out</button></div>
+ </header>
+ <div class="layout">
+  <aside><div class="nav-label">Command centre</div><nav class="nav" id="nav">
+   <button class="active" data-section="overview">◈ Overview</button><button data-section="redirects">↗ Redirect Analytics</button><button data-section="devices">▣ Enrolled Devices</button><button data-section="capabilities">◇ Capability Status</button><button data-section="enrollment">⌁ Enrollment Links</button><button data-section="locations">⌖ Device Locations</button><button data-section="commands">⌘ Recovery Commands</button><button data-section="media">◉ Live Media Sessions</button><button data-section="audit">≡ Audit Logs</button><button data-section="settings">⚙ Settings</button>
+  </nav><div class="side-foot">PHANTOM RECOVER · Android 0.3.0 baseline<br>Consent first. Control always.</div></aside>
+  <main>
+   <section id="overview" class="section active">
+    <div class="page-head"><div><div class="eyebrow">System overview</div><h1>Command overview</h1><p>Live values from your secured Supabase records.</p></div><span class="pill" id="syncState"><i class="dot"></i> Awaiting sync</span></div>
+    <div class="cards">
+     <div class="card stat"><div class="label">TOTAL DEVICES</div><div class="num" id="totalDevices">—</div><div class="hint">Android + browser enrollments</div></div>
+     <div class="card stat"><div class="label">ONLINE</div><div class="num" id="onlineDevices">—</div><div class="hint">Heartbeat within 90 seconds</div></div>
+     <div class="card stat"><div class="label">OFFLINE</div><div class="num" id="offlineDevices">—</div><div class="hint">Stale or missing heartbeat</div></div>
+     <div class="card stat"><div class="label">REVOKED</div><div class="num" id="revokedDevices">—</div><div class="hint">Access disabled</div></div>
+     <div class="card stat"><div class="label">LOCATION RECORDS</div><div class="num" id="locationCount">—</div><div class="hint">User-shared coordinates</div></div>
+    </div>
+    <div class="grid2">
+     <div class="panel"><div class="panel-head"><div><h2>Device activity</h2><p class="sub">Most recently seen enrolled devices</p></div></div><div id="recentDevices" class="empty">Loading device records…</div></div>
+     <div class="panel"><div class="panel-head"><div><h2>Latest activity</h2><p class="sub">Audit events from the database</p></div></div><div id="recentActivity" class="list"><div class="empty">Loading audit records…</div></div></div>
+    </div>
+   </section>
+   <section id="redirects" class="section"><div class="page-head"><div><div class="eyebrow">Traffic insights</div><h1>Redirect analytics</h1><p>Aggregated visit records; no hidden fingerprinting.</p></div></div><div class="panel"><div id="redirectTable" class="empty">Loading redirect analytics…</div></div></section>
+   <section id="devices" class="section"><div class="page-head"><div><div class="eyebrow">Registered endpoints</div><h1>Enrolled devices</h1><p>Only devices authenticated to this owner account appear here.</p></div></div><div class="panel"><div id="deviceTable" class="empty">Loading enrolled devices…</div></div></section>
+   <section id="capabilities" class="section"><div class="page-head"><div><div class="eyebrow">Verified feature availability</div><h1>Capability status</h1><p>Status reflects the known implementation baseline, not merely a visible button.</p></div></div><div class="cap-grid" id="capGrid"></div></section>
+   <section id="enrollment" class="section"><div class="page-head"><div><div class="eyebrow">Controlled onboarding</div><h1>Enrollment links</h1><p>Invitation generation stays disabled until the authenticated API is restored.</p></div></div><div class="section-note">Backend restoration required: the current phantom-web endpoint returns HTTP 410. No enrollment success will be simulated.</div><div class="panel"><h2>Existing Android invitations</h2><div id="tokenTable" class="empty">Loading invitation metadata…</div></div><div class="panel"><h2>Browser enrollment invitations</h2><div id="inviteTable" class="empty">Loading invitation metadata…</div></div></section>
+   <section id="locations" class="section"><div class="page-head"><div><div class="eyebrow">Consent-based location</div><h1>Device locations</h1><p>Location records are displayed only after an explicit device-side share action.</p></div></div><div class="panel"><div id="locationTable" class="empty">Loading location records…</div></div></section>
+   <section id="commands" class="section"><div class="page-head"><div><div class="eyebrow">Device recovery</div><h1>Recovery commands</h1><p>Command dispatch remains unavailable until the server-side command API is restored and verified.</p></div></div><div class="section-note">Safety lock: command controls are not exposed while the Edge Function is in its cleared state. This prevents false success and accidental device targeting.</div><div class="panel"><div id="commandTable" class="empty">Loading command history…</div></div></section>
+   <section id="media" class="section"><div class="page-head"><div><div class="eyebrow">Consent-led sessions</div><h1>Live media sessions</h1><p>Browser media sharing requires fresh user approval and visible browser indicators.</p></div></div><div class="section-note">No active media transport is configured. Camera, microphone and screen-share controls will remain unavailable until authenticated WebRTC signaling and TURN are implemented and tested.</div><div class="panel"><div class="empty">No media sessions are reported by the current backend.</div></div></section>
+   <section id="audit" class="section"><div class="page-head"><div><div class="eyebrow">Accountability</div><h1>Audit logs</h1><p>Security events without passwords, raw tokens or media content.</p></div></div><div class="panel"><div id="auditTable" class="empty">Loading audit records…</div></div></section>
+   <section id="settings" class="section"><div class="page-head"><div><div class="eyebrow">System configuration</div><h1>Settings</h1><p>Runtime configuration and security posture.</p></div></div><div class="panel"><div class="list"><div class="list-item"><strong>Owner account</strong><small>mayur99@gmail.com · allowlisted</small></div><div class="list-item"><strong>Backend</strong><small>Mayur-System · ap-south-1 · project ewvirpfovwruxshzzlaa</small></div><div class="list-item"><strong>Device online threshold</strong><small>90 seconds from server-recorded heartbeat</small></div><div class="list-item"><strong>Edge API status</strong><small id="apiStatus">Checking endpoint…</small></div><div class="list-item"><strong>Privacy</strong><small>No covert camera, microphone, screen, call, notification or private-message collection.</small></div></div></div></section>
+   <div id="globalMsg" aria-live="polite"></div>
+  </main>
+ </div>
+ <footer>PHANTOM RECOVER · Your Device. Your Consent. Your Control. · Mayuu Control</footer>
+</section>
+<script>
+(() => {
+ const SUPABASE_URL = "https://ewvirpfovwruxshzzlaa.supabase.co";
+ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
+ const OWNER_EMAIL = "mayur99@gmail.com";
+ const API_URL = SUPABASE_URL + "/functions/v1/phantom-web";
+ const ONLINE_WINDOW_MS = 90_000;
+ const $ = id => document.getElementById(id);
+ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+ let state = {devices:[],web:[],locations:[],webLocations:[],audit:[],commands:[],webCommands:[],invites:[],tokens:[],redirects:[]};
+ const esc = v => String(v ?? "—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+ const date = v => v ? new Date(v).toLocaleString() : "—";
+ const ageOnline = v => !!v && (Date.now()-new Date(v).getTime() <= ONLINE_WINDOW_MS) && (Date.now()-new Date(v).getTime() >= -30000);
+ const status = (row,web=false) => row.revoked_at || row.status==="revoked" ? "revoked" : ageOnline(row.last_seen_at) ? "online" : "offline";
+ const pill = s => '<span class="pill '+s+'"><i class="dot"></i>'+esc(s.toUpperCase())+'</span>';
+ const table = (heads,rows) => rows.length ? '<div class="table-wrap"><table><thead><tr>'+heads.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>' : '<div class="empty">No records found. No demo data is being displayed.</div>';
+ function message(target,text,type=""){ $(target).innerHTML = text ? '<div class="msg '+type+'">'+esc(text)+'</div>' : ""; }
+ function showApp(user){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");$("ownerLabel").textContent=user.email; }
+ function showLogin(){ $("appView").classList.add("hidden");$("loginView").classList.remove("hidden");$("password").value=""; }
+ async function ownerSession(){
+   const {data,error}=await sb.auth.getSession(); if(error) throw error;
+   const session=data.session; if(!session) return null;
+   const {data:userData,error:userError}=await sb.auth.getUser(); if(userError) throw userError;
+   if(userData.user?.email?.toLowerCase()!==OWNER_EMAIL){await sb.auth.signOut();throw new Error("Unauthorized owner account.");}
+   return userData.user;
+ }
+ async function loadTable(name,columns,order="created_at",ascending=false){
+   const {data,error}=await sb.from(name).select(columns).order(order,{ascending}).limit(200);
+   if(error) throw new Error(name+": "+error.message);
+   return data||[];
+ }
+ async function loadAll(){
+   $("syncState").innerHTML='<i class="dot"></i> Syncing…';
+   const jobs = [
+    ["devices",()=>loadTable("phantom_devices","id,device_label,manufacturer,model,android_version,app_version,status,battery_percent,network_type,observed_public_ip,last_seen_at,revoked_at,consented_at,last_location_at,created_at","last_seen_at")],
+    ["web",()=>loadTable("phantom_web_enrollments","id,label,browser_info,observed_public_ip,status,consented_at,last_seen_at,revoked_at,created_at","last_seen_at")],
+    ["locations",()=>loadTable("phantom_device_locations","id,device_id,latitude,longitude,accuracy_m,captured_at","captured_at")],
+    ["webLocations",()=>loadTable("phantom_web_locations","id,enrollment_id,latitude,longitude,accuracy_m,captured_at","captured_at")],
+    ["audit",()=>loadTable("phantom_audit_logs","id,device_id,actor_user_id,event_type,event_details,created_at","created_at")],
+    ["commands",()=>loadTable("phantom_device_commands","id,device_id,command_type,status,expires_at,acknowledged_at,completed_at,created_at","created_at")],
+    ["webCommands",()=>loadTable("phantom_web_commands","id,enrollment_id,command,status,created_at,acknowledged_at","created_at")],
+    ["invites",()=>loadTable("phantom_web_invites","id,label,expires_at,redeemed_at,created_at","created_at")],
+    ["tokens",()=>loadTable("phantom_enrollment_tokens","id,device_label,expires_at,redeemed_at,created_at","created_at")],
+    ["redirects",()=>loadTable("phantom_redirect_clicks","id,invite_id,label,destination_url,clicked_at,observed_public_ip","clicked_at")]
+   ];
+   const settled=await Promise.all(jobs.map(async ([key,fn])=>{try{return [key,await fn(),null]}catch(e){return [key,[],e.message]}}));
+   const errors=[];
+   for(const [key,data,error] of settled){state[key]=data;if(error)errors.push(error);}
+   render();
+   $("syncState").innerHTML='<i class="dot"></i> '+(errors.length?"Partial data":"Synced · "+new Date().toLocaleTimeString());
+   if(errors.length) message("globalMsg","Some data could not be loaded: "+errors.join(" | "),"error"); else message("globalMsg","");
+ }
+ function combined(){
+   return [
+    ...state.devices.map(d=>({...d,kind:"Android",name:d.device_label,last_seen_at:d.last_seen_at,_status:status(d)})),
+    ...state.web.map(d=>({...d,kind:"Browser",name:d.label,last_seen_at:d.last_seen_at,_status:status(d,true)}))
+   ].sort((a,b)=>new Date(b.last_seen_at||b.created_at)-new Date(a.last_seen_at||a.created_at));
+ }
+ function render(){
+   const all=combined(),active=all.filter(x=>x._status==="online").length,revoked=all.filter(x=>x._status==="revoked").length;
+   $("totalDevices").textContent=all.length;$("onlineDevices").textContent=active;$("offlineDevices").textContent=all.length-active-revoked;$("revokedDevices").textContent=revoked;$("locationCount").textContent=state.locations.length+state.webLocations.length;
+   const recent=all.slice(0,6);
+   $("recentDevices").innerHTML=recent.length?table(["Device","Type","Status","Last seen"],recent.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(date(d.last_seen_at))+'</td></tr>')):'<div class="empty">No enrolled devices yet.</div>';
+   $("deviceTable").innerHTML=table(["Device","Type","Status","Battery","Network","Model / Browser","Last seen","Consent"],all.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(d.battery_percent==null?"N/A":d.battery_percent+"%")+'</td><td>'+esc(d.network_type||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version].filter(Boolean).join(" "):(d.browser_info?.browser||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td></tr>')));
+   const activity=state.audit.slice(0,8);
+   $("recentActivity").innerHTML=activity.length?activity.map(a=>'<div class="list-item"><strong>'+esc(a.event_type)+'</strong><small>'+esc(date(a.created_at))+' · '+esc(a.device_id||"System")+'</small></div>').join(""):'<div class="empty">No audit events recorded.</div>';
+   $("auditTable").innerHTML=table(["Event","Device","Actor","Time","Details"],state.audit.map(a=>'<tr><td>'+esc(a.event_type)+'</td><td class="mono">'+esc(a.device_id)+'</td><td class="mono">'+esc(a.actor_user_id)+'</td><td>'+esc(date(a.created_at))+'</td><td>'+esc(JSON.stringify(a.event_details||{}).slice(0,140))+'</td></tr>'));
+   const locs=[...state.locations.map(l=>({...l,source:"Android",device:l.device_id})),...state.webLocations.map(l=>({...l,source:"Browser",device:l.enrollment_id}))].sort((a,b)=>new Date(b.captured_at)-new Date(a.captured_at));
+   $("locationTable").innerHTML=table(["Source","Device / Enrollment","Latitude","Longitude","Accuracy","Captured","Map"],locs.map(l=>'<tr><td>'+esc(l.source)+'</td><td class="mono">'+esc(l.device)+'</td><td>'+esc(l.latitude)+'</td><td>'+esc(l.longitude)+'</td><td>'+esc(l.accuracy_m==null?"N/A":l.accuracy_m+" m")+'</td><td>'+esc(date(l.captured_at))+'</td><td><a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+encodeURIComponent(l.latitude+","+l.longitude)+'">Open map ↗</a></td></tr>'));
+   $("commandTable").innerHTML=table(["Command","Device / Enrollment","Status","Created","Expires / Ack"],[...state.commands.map(c=>'<tr><td>'+esc(c.command_type)+'</td><td class="mono">'+esc(c.device_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.expires_at))+' / '+esc(date(c.acknowledged_at))+'</td></tr>'),...state.webCommands.map(c=>'<tr><td>'+esc(c.command)+'</td><td class="mono">'+esc(c.enrollment_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.acknowledged_at))+'</td></tr>')]);
+   $("tokenTable").innerHTML=table(["Device label","Created","Expires","Redeemed"],state.tokens.map(t=>'<tr><td>'+esc(t.device_label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
+   $("inviteTable").innerHTML=table(["Label","Created","Expires","Redeemed"],state.invites.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
+   $("redirectTable").innerHTML=table(["Label","Destination","Visited","Server IP"],state.redirects.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(t.destination_url)+'</td><td>'+esc(date(t.clicked_at))+'</td><td>'+esc(t.observed_public_ip||"Not recorded")+'</td></tr>'));
+ }
+ const capabilities=[
+  ["Owner authentication","Implemented","Supabase Auth + owner allowlist"],
+  ["Owner-scoped device reads","Implemented","RLS-protected reads"],
+  ["Browser enrollment API","In progress","Endpoint currently cleared; restoration required"],
+  ["Android one-time enrollment","In progress","API restoration and end-to-end verification required"],
+  ["Android Keystore AES-GCM","Not verified","Do not claim until source/build inspection"],
+  ["Visible Android foreground service","Not verified","Do not claim until source/build inspection"],
+  ["Heartbeat + battery/network telemetry","In progress","Schema exists; API currently returns 410"],
+  ["One-shot Android GPS","In progress","Permission + upload flow needs verification"],
+  ["Browser GPS","In progress","Permission flow and upload need verification"],
+  ["Browser camera/microphone permission","Not verified","Browser media session implementation needs review"],
+  ["Browser WebRTC + TURN","Not implemented","No configured media transport verified"],
+  ["Native Android camera/microphone","Not implemented","CameraX/audio capture not verified"],
+  ["Android MediaProjection","Not implemented","System consent flow not implemented"],
+  ["FCM push notifications","Not implemented","No FCM integration verified"],
+  ["Remote device lock / SIM detection","Unsupported","Not part of supported baseline"],
+  ["Private notifications/calls/messages","Unsupported","Explicitly excluded from this product"]
+ ];
+ $("capGrid").innerHTML=capabilities.map(([name,statusText,detail])=>'<div class="cap"><strong>'+esc(name)+' <span style="float:right;color:'+(statusText==="Implemented"?"#36d69a":statusText==="In progress"?"#f5b84c":"#91a2b8")+'">'+esc(statusText)+'</span></strong><span>'+esc(detail)+'</span></div>').join("");
+ async function checkApi(){
+  try{const r=await fetch(API_URL,{method:"OPTIONS"});$("apiStatus").textContent="Endpoint reachable · HTTP "+r.status+" (OPTIONS probe only)";}
+  catch(e){$("apiStatus").textContent="Unavailable · "+e.message;}
+ }
+ $("loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();const btn=$("loginBtn");btn.disabled=true;btn.textContent="Authenticating…";message("loginMsg","");
+  try{
+   const email=$("email").value.trim().toLowerCase();if(email!==OWNER_EMAIL)throw new Error("Unauthorized owner account.");
+   const {data,error}=await sb.auth.signInWithPassword({email,password:$("password").value});if(error)throw error;
+   if(data.user?.email?.toLowerCase()!==OWNER_EMAIL){await sb.auth.signOut();throw new Error("Unauthorized owner account.");}
+   showApp(data.user);await loadAll();await checkApi();
+  }catch(err){message("loginMsg",err.message||"Sign-in failed. Check credentials and network.","error");}
+  finally{btn.disabled=false;btn.textContent="Sign in securely";}
+ });
+ $("logoutBtn").addEventListener("click",async()=>{await sb.auth.signOut();showLogin();});
+ $("refreshBtn").addEventListener("click",async()=>{try{await ownerSession();await loadAll();}catch(e){message("globalMsg",e.message,"error");showLogin();}});
+ $("nav").addEventListener("click",e=>{const b=e.target.closest("button[data-section]");if(!b)return;document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===b.dataset.section));});
+ sb.auth.onAuthStateChange(async(_event,session)=>{if(!session){showLogin();return;}if(session.user?.email?.toLowerCase()!==OWNER_EMAIL){await sb.auth.signOut();showLogin();return;}showApp(session.user);});
+ (async()=>{try{const user=await ownerSession();if(user){showApp(user);await loadAll();await checkApi();}}catch(e){message("loginMsg",e.message,"error");showLogin();}})();
+})();
+</script>
+</body></html>
