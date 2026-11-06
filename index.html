@@ -188,6 +188,10 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    for(const [table,column] of ownerTables){
      channel=channel.on("postgres_changes",{event:"*",schema:"public",table,filter:column+"=eq."+user.id},refresh);
    }
+   // These child tables have owner-scoped SELECT RLS through their parent device/enrollment.
+   for(const table of ["phantom_device_locations","phantom_device_telemetry","phantom_device_commands","phantom_web_locations"]){
+     channel=channel.on("postgres_changes",{event:"*",schema:"public",table},refresh);
+   }
    realtimeChannel=channel.subscribe((status)=>{
      if(status==="SUBSCRIBED")$("syncState").innerHTML='<i class="dot"></i> Realtime · fallback active';
      else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED")$("syncState").innerHTML='<i class="dot"></i> Realtime unavailable · fallback active';
