@@ -86,12 +86,12 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 <p class="foot">PHANTOM RECOVER · Web MVP · Consent-first · No covert tracking · v1.0</p>
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = "https://ewvirpfovwruxshzzlaa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
 const FUNCTION_URL = SUPABASE_URL + "/functions/v1/phantom-web";
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 let ownerData = [], locationsData = [], nativeDevicesData = [], nativeLocationsData = [], currentInvite = "", poller = null, redirectData = [];
 function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",3200)}
@@ -330,7 +330,7 @@ $("dismissLostMode").onclick=()=>{$("lostModeOverlay").classList.add("hidden");s
 async function heartbeat(){const id=sessionStorage.getItem("phantom_enrollment_id"),secret=sessionStorage.getItem("phantom_session_secret");if(!id||!secret)return;await api("heartbeat",{enrollmentId:id,sessionSecret:secret,browserInfo:await browserInfo()},false)}
 $("shareLocation").onclick=()=>{if(!navigator.geolocation){toast("This browser does not support GPS location");return}navigator.geolocation.getCurrentPosition(async p=>{try{await api("location",{enrollmentId:sessionStorage.getItem("phantom_enrollment_id"),sessionSecret:sessionStorage.getItem("phantom_session_secret"),latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy},false);toast("Your location was shared with the owner")}catch(e){toast(e.message)}},e=>toast(e.message),{enableHighAccuracy:true,timeout:15000,maximumAge:0})};
 $("stopSharing").onclick=()=>{sessionStorage.removeItem("phantom_enrollment_id");sessionStorage.removeItem("phantom_session_secret");if(deviceCommandTimer)clearInterval(deviceCommandTimer);if(deviceMediaTimer)clearInterval(deviceMediaTimer);if(deviceMediaStream){deviceMediaStream.getTracks().forEach(t=>t.stop());deviceMediaStream=null}if(devicePc){devicePc.close();devicePc=null}stopRing();$("lostModeOverlay").classList.add("hidden");$("gpsArea").classList.add("hidden");$("enrollMessage").textContent="This browser session has ended. No further heartbeats or location updates will be sent."};
-try{const {data:{session},error}=await sb.auth.getSession();if(error)throw error;if(session?.user?.email?.toLowerCase()==="mayur99@gmail.com"&&!inviteToken)ownerMode();else if(!inviteToken)show("authView")}catch(e){console.error("PHANTOM session restore:",e);show("authView");$("authMessage").textContent="Session check failed. Please sign in again.";}
+try{const {data:{session},error}=await sb.auth.getSession();if(error)throw error;if(session?.user?.email?.toLowerCase()==="mayur99@gmail.com"&&!inviteToken)ownerMode();else if(!inviteToken)show("authView");$("connection").innerHTML='<span class="dot"></span>Ready · Supabase'}catch(e){console.error("PHANTOM session restore:",e);show("authView");$("connection").textContent="Connection error";$("authMessage").textContent="Supabase connection failed: "+e.message;}
 
 let phantomLiveWatch = null;
 const originalLocationShare = $("shareLocation").onclick;
