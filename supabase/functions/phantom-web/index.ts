@@ -301,6 +301,7 @@ async function handle(action: string, body: any, req: Request) {
     if (!validUuid(id) || !["acknowledged", "failed"].includes(next)) throw new ApiError(400, "invalid_ack", "Command acknowledgment is invalid.");
     const rows = await patch("phantom_web_commands", { id: "eq." + id, enrollment_id: "eq." + enrollment.id, owner_user_id: "eq." + enrollment.owner_user_id, status: "eq.delivered", expires_at: "gt." + nowIso() }, { status: next, acknowledged_at: nowIso() });
     if (!rows?.length) throw new ApiError(404, "command_not_found", "Command not found or already closed.");
+    await audit("browser_recovery_command_" + next, null, null, { enrollment_id: enrollment.id, command_id: id });
     return { ok: true, status: next };
   }
   if (action === "web_session_stop") {
@@ -332,18 +333,23 @@ Deno.serve(async (req: Request) => {
     "Vary": "Origin"
   } : { "Vary": "Origin" } });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, allowedOrigin);
+  let requestAction = "unknown";
   try {
     assertConfigured();
-    const length = Number(req.headers.get("content-length") || "0");
-    if (length > 16_384) throw new ApiError(413, "body_too_large", "Request body is too large.");
+    const rawBody = await req.text();
+    if (encoder.encode(rawBody).byteLength > 16_384) throw new ApiError(413, "body_too_large", "Request body is too large.");
     let body: any;
-    try { body = await req.json(); } catch { throw new ApiError(400, "invalid_json", "Request body must be valid JSON."); }
+    try { body = JSON.parse(rawBody); } catch { throw new ApiError(400, "invalid_json", "Request body must be valid JSON."); }
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new ApiError(400, "invalid_body", "Request body must be an object.");
     const action = asText(body.action, 50);
+    requestAction = action || "unknown";
     const result = await handle(action, body, req);
     return json({ ok: true, ...result }, 200, allowedOrigin);
   } catch (error) {
     const e = error instanceof ApiError ? error : new ApiError(500, "internal_error", "The request could not be completed.");
+    if ((e.status === 401 || e.status === 403) && SUPABASE_URL && SERVICE_KEY) {
+      try { await audit("authentication_failure", null, null, { action: requestAction, reason: e.code }); } catch { /* do not expose secrets or mask the original error */ }
+    }
     return json({ ok: false, error: e.code, message: e.message }, e.status, allowedOrigin);
   }
 });
