@@ -141,12 +141,19 @@ async function refresh(){
  }).join(""):'<tr><td colspan="8" class="empty">No native Android agents enrolled yet.</td></tr>';
  $("locationRows").innerHTML=locationsData.length?locationsData.map(x=>'<tr><td>'+safe(x.phantom_web_enrollments?.label||"Browser")+'</td><td>'+Number(x.latitude).toFixed(6)+'</td><td>'+Number(x.longitude).toFixed(6)+'</td><td>'+safe(x.accuracy_m?Math.round(x.accuracy_m)+" m":"—")+'</td><td>'+safe(fmt(x.captured_at))+'</td></tr>').join(""):'<tr><td colspan="5" class="empty">No user-approved location points.</td></tr>';
 }
-async function ownerMode(){
- $("authView").classList.add("hidden");$("enrollView").classList.add("hidden");$("ownerView").classList.remove("hidden");$("ownerView").style.display="block";$("logout").classList.remove("hidden");$("connection").innerHTML='<span class="dot"></span>Live · Supabase';
- try{await refresh();}catch(e){toast("Dashboard opened, but data loading failed: "+e.message);console.error("PHANTOM dashboard refresh:",e)}
- if(poller)clearInterval(poller);poller=setInterval(()=>refresh().catch(e=>console.error("PHANTOM refresh:",e)),12000);
+function showOwnerShell(){
+ $("authView").classList.add("hidden");$("enrollView").classList.add("hidden");
+ $("ownerView").classList.remove("hidden");$("ownerView").style.display="block";
+ $("logout").classList.remove("hidden");
+ $("connection").innerHTML='<span class="dot"></span>Signed in · Supabase';
+ window.scrollTo({top:0,behavior:"instant"});
 }
-sb.auth.onAuthStateChange((event,session)=>{if(event==="SIGNED_IN"&&session?.user?.email?.toLowerCase()==="mayur99@gmail.com"){Promise.resolve().then(()=>ownerMode()).catch(e=>{console.error("Owner dashboard navigation:",e);$("authMessage").textContent="Signed in, but dashboard failed: "+e.message;});}});
+function startOwnerRefresh(){
+ if(poller)clearInterval(poller);
+ const load=()=>refresh().then(()=>{$("connection").innerHTML='<span class="dot"></span>Live · Supabase'}).catch(e=>{console.error("PHANTOM dashboard refresh:",e);$("connection").textContent="Connected · data load issue";toast("Dashboard connected; data load issue: "+e.message)});
+ load();poller=setInterval(load,12000);
+}
+async function ownerMode(){showOwnerShell();startOwnerRefresh()}
 async function runAuth(){
  const email=$("email").value.trim().toLowerCase(),password=$("password").value;
  const message=$("authMessage"),signIn=$("signin");
@@ -157,16 +164,16 @@ async function runAuth(){
  try{
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error)throw error;
-  if(!data.session)throw new Error("Login session nahi bana. Dobara try karo.");
-  message.textContent="Login successful. Opening dashboard…";
-  await ownerMode();
-  if($("ownerView").classList.contains("hidden")){ $("authView").classList.add("hidden");$("ownerView").classList.remove("hidden");$("ownerView").style.display="block"; }
-  window.scrollTo({top:0,behavior:"instant"});
+  if(!data.session||data.user?.email?.toLowerCase()!=="mayur99@gmail.com")throw new Error("Owner session verify nahi hua. Dobara sign in karo.");
+  showOwnerShell();
+  message.textContent="";
+  startOwnerRefresh();
  }catch(e){message.textContent=e.message||"Login failed.";console.error("PHANTOM auth error:",e)}
  finally{signIn.disabled=false;signIn.textContent="Sign in"}
 }
 $("signin").type="button";
-$("signin").onclick=runAuth;
+$("signin").addEventListener("click",e=>{e.preventDefault();runAuth()});
+$("password").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();runAuth()}});
 $("logout").onclick=async()=>{if(poller)clearInterval(poller);await sb.auth.signOut();$("logout").classList.add("hidden");show("authView")};
 document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===b.dataset.tab));});
 $("createRedirect").onclick=async()=>{try{const label=$("redirectLabel").value.trim(),url=$("redirectUrl").value.trim();if(!label)throw new Error("Enter a label.");const parsed=new URL(url);if(!["http:","https:"].includes(parsed.protocol))throw new Error("Only http/https URLs are allowed.");const r=await api("create_redirect_link",{label,destinationUrl:parsed.href});currentRedirect=location.origin+location.pathname+"?go="+r.token;$("redirectLinkText").textContent=currentRedirect;$("redirectExpiry").textContent="Expires "+fmt(r.expiresAt);$("redirectBox").classList.remove("hidden");toast("Tracked redirect link created")}catch(e){toast(e.message)}};let currentRedirect="";$("copyRedirect").onclick=async()=>{await navigator.clipboard.writeText(currentRedirect);toast("Redirect link copied")};
@@ -323,7 +330,7 @@ $("dismissLostMode").onclick=()=>{$("lostModeOverlay").classList.add("hidden");s
 async function heartbeat(){const id=sessionStorage.getItem("phantom_enrollment_id"),secret=sessionStorage.getItem("phantom_session_secret");if(!id||!secret)return;await api("heartbeat",{enrollmentId:id,sessionSecret:secret,browserInfo:await browserInfo()},false)}
 $("shareLocation").onclick=()=>{if(!navigator.geolocation){toast("This browser does not support GPS location");return}navigator.geolocation.getCurrentPosition(async p=>{try{await api("location",{enrollmentId:sessionStorage.getItem("phantom_enrollment_id"),sessionSecret:sessionStorage.getItem("phantom_session_secret"),latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy},false);toast("Your location was shared with the owner")}catch(e){toast(e.message)}},e=>toast(e.message),{enableHighAccuracy:true,timeout:15000,maximumAge:0})};
 $("stopSharing").onclick=()=>{sessionStorage.removeItem("phantom_enrollment_id");sessionStorage.removeItem("phantom_session_secret");if(deviceCommandTimer)clearInterval(deviceCommandTimer);if(deviceMediaTimer)clearInterval(deviceMediaTimer);if(deviceMediaStream){deviceMediaStream.getTracks().forEach(t=>t.stop());deviceMediaStream=null}if(devicePc){devicePc.close();devicePc=null}stopRing();$("lostModeOverlay").classList.add("hidden");$("gpsArea").classList.add("hidden");$("enrollMessage").textContent="This browser session has ended. No further heartbeats or location updates will be sent."};
-const {data:{session}}=await sb.auth.getSession();if(session&&!inviteToken)await ownerMode();else if(!inviteToken)show("authView");
+try{const {data:{session},error}=await sb.auth.getSession();if(error)throw error;if(session?.user?.email?.toLowerCase()==="mayur99@gmail.com"&&!inviteToken)ownerMode();else if(!inviteToken)show("authView")}catch(e){console.error("PHANTOM session restore:",e);show("authView");$("authMessage").textContent="Session check failed. Please sign in again.";}
 
 let phantomLiveWatch = null;
 const originalLocationShare = $("shareLocation").onclick;
