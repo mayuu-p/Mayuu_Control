@@ -65,7 +65,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    <section id="redirects" class="section"><div class="page-head"><div><div class="eyebrow">Traffic insights</div><h1>Redirect analytics</h1><p>Aggregated visit records; no hidden fingerprinting.</p></div></div><div class="panel"><div id="redirectTable" class="empty">Loading redirect analytics…</div></div></section>
    <section id="devices" class="section"><div class="page-head"><div><div class="eyebrow">Registered endpoints</div><h1>Enrolled devices</h1><p>Only devices authenticated to this owner account appear here.</p></div></div><div class="panel"><div id="deviceTable" class="empty">Loading enrolled devices…</div></div></section>
    <section id="capabilities" class="section"><div class="page-head"><div><div class="eyebrow">Verified feature availability</div><h1>Capability status</h1><p>Status reflects the known implementation baseline, not merely a visible button.</p></div></div><div class="cap-grid" id="capGrid"></div></section>
-   <section id="enrollment" class="section"><div class="page-head"><div><div class="eyebrow">Controlled onboarding</div><h1>Enrollment links</h1><p>Invitation generation stays disabled until the authenticated API is restored.</p></div></div><div class="section-note">Backend restoration required: the current phantom-web endpoint returns HTTP 410. No enrollment success will be simulated.</div><div class="panel"><h2>Existing Android invitations</h2><div id="tokenTable" class="empty">Loading invitation metadata…</div></div><div class="panel"><h2>Browser enrollment invitations</h2><div id="inviteTable" class="empty">Loading invitation metadata…</div></div></section>
+   <section id="enrollment" class="section"><div class="page-head"><div><div class="eyebrow">Controlled onboarding</div><h1>Enrollment links</h1><p>Invitation generation stays disabled until the authenticated API is restored.</p></div></div><div class="panel"><h2>Generate Browser Enrollment Link</h2><p class="sub">One-time invitation · 30-minute expiry · token hash stored server-side.</p><div class="field"><label for="browserLabel">BROWSER DEVICE LABEL</label><input id="browserLabel" placeholder="e.g. Mayur's Chrome browser"></div><button class="btn primary" id="generateBrowserBtn">Generate Browser Enrollment Link</button><div id="browserInviteResult"></div><button class="btn ghost hidden" id="copyBrowserBtn">Copy Enrollment Link</button></div><div class="panel"><h2>Generate Android Enrollment Code</h2><p class="sub">64-character hexadecimal code · one-time use · 15-minute expiry.</p><div class="field"><label for="androidLabel">ANDROID DEVICE LABEL</label><input id="androidLabel" placeholder="e.g. Samsung Galaxy"></div><button class="btn primary" id="generateAndroidBtn">Generate Android Code</button><div id="androidCodeResult"></div><button class="btn ghost hidden" id="copyAndroidBtn">Copy Code</button></div><div class="panel"><h2>Existing Android invitations</h2><div id="tokenTable" class="empty">Loading invitation metadata…</div></div><div class="panel"><h2>Browser enrollment invitations</h2><div id="inviteTable" class="empty">Loading invitation metadata…</div></div></section>
    <section id="locations" class="section"><div class="page-head"><div><div class="eyebrow">Consent-based location</div><h1>Device locations</h1><p>Location records are displayed only after an explicit device-side share action.</p></div></div><div class="panel"><div id="locationTable" class="empty">Loading location records…</div></div></section>
    <section id="commands" class="section"><div class="page-head"><div><div class="eyebrow">Device recovery</div><h1>Recovery commands</h1><p>Command dispatch remains unavailable until the server-side command API is restored and verified.</p></div></div><div class="section-note">Safety lock: command controls are not exposed while the Edge Function is in its cleared state. This prevents false success and accidental device targeting.</div><div class="panel"><div id="commandTable" class="empty">Loading command history…</div></div></section>
    <section id="media" class="section"><div class="page-head"><div><div class="eyebrow">Consent-led sessions</div><h1>Live media sessions</h1><p>Browser media sharing requires fresh user approval and visible browser indicators.</p></div></div><div class="section-note">No active media transport is configured. Camera, microphone and screen-share controls will remain unavailable until authenticated WebRTC signaling and TURN are implemented and tested.</div><div class="panel"><div class="empty">No media sessions are reported by the current backend.</div></div></section>
@@ -107,6 +107,31 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    if(error) throw new Error(name+": "+error.message);
    return data||[];
  }
+ let lastBrowserLink="",lastAndroidCode="";
+ async function ownerApi(action,payload={}){
+   const {data,error}=await sb.auth.getSession();if(error)throw error;
+   const token=data.session?.access_token;if(!token)throw new Error("Owner session expired. Sign in again.");
+   const response=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_PUBLISHABLE_KEY,"Authorization":"Bearer "+token},body:JSON.stringify({action,...payload}),cache:"no-store"});
+   let result={};try{result=await response.json()}catch{}
+   if(!response.ok||result.ok===false)throw new Error(result.message||"Server request failed (HTTP "+response.status+").");
+   return result;
+ }
+ function setResult(id,text,type="success"){message(id,text,type);}
+ async function copyText(value){if(!value)throw new Error("Nothing to copy.");if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(value);}else{const temp=document.createElement("textarea");temp.value=value;document.body.appendChild(temp);temp.select();document.execCommand("copy");temp.remove();}}
+ $("generateBrowserBtn").addEventListener("click",async()=>{
+   const button=$("generateBrowserBtn");button.disabled=true;button.textContent="Generating…";setResult("browserInviteResult","");
+   try{const result=await ownerApi("browser_invite_create",{label:$("browserLabel").value.trim()});lastBrowserLink=result.enrollment_url;$("copyBrowserBtn").classList.remove("hidden");setResult("browserInviteResult","Server confirmed invitation. Expires: "+date(result.expires_at),"success");}
+   catch(e){setResult("browserInviteResult",e.message,"error");}
+   finally{button.disabled=false;button.textContent="Generate Browser Enrollment Link";}
+ });
+ $("copyBrowserBtn").addEventListener("click",async()=>{try{await copyText(lastBrowserLink);setResult("browserInviteResult","Enrollment link copied.","success");}catch(e){setResult("browserInviteResult",e.message,"error");}});
+ $("generateAndroidBtn").addEventListener("click",async()=>{
+   const button=$("generateAndroidBtn");button.disabled=true;button.textContent="Generating…";setResult("androidCodeResult","");
+   try{const result=await ownerApi("android_code_create",{device_label:$("androidLabel").value.trim()});lastAndroidCode=result.code;$("copyAndroidBtn").classList.remove("hidden");setResult("androidCodeResult","Server confirmed code. Expires: "+date(result.expires_at),"success");}
+   catch(e){setResult("androidCodeResult",e.message,"error");}
+   finally{button.disabled=false;button.textContent="Generate Android Code";}
+ });
+ $("copyAndroidBtn").addEventListener("click",async()=>{try{await copyText(lastAndroidCode);setResult("androidCodeResult","Android code copied. Share it securely; it can be used only once.","success");}catch(e){setResult("androidCodeResult",e.message,"error");}});
  async function loadAll(){
    $("syncState").innerHTML='<i class="dot"></i> Syncing…';
    const jobs = [
