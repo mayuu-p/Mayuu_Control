@@ -22,6 +22,22 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
 @media(max-width:1100px){.cards{grid-template-columns:repeat(3,minmax(0,1fr))}.grid2{grid-template-columns:1fr}}
 @media(max-width:760px){.topbar{padding:0 15px;height:62px}.layout{display:block}aside{position:sticky;top:62px;z-index:4;height:auto;max-height:calc(100vh - 62px);align-self:auto;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden}.nav{display:flex;width:max-content}.nav-label,.side-foot{display:none}.nav button{white-space:nowrap;padding:9px 11px;font-size:11px}main{padding:19px 14px}.cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:13px}.stat .num{font-size:24px}.page-head{align-items:flex-start;flex-direction:column}.cap-grid{grid-template-columns:1fr}.owner{display:none}.brand strong{font-size:14px}.brand small{font-size:8px}.topbar .logo{width:38px;height:38px}.panel{padding:14px}}
 @media(max-width:390px){.cards{grid-template-columns:1fr 1fr}.stat .num{font-size:21px}}
+
+/* Fixed command rail: viewport-pinned on desktop and mobile */
+@media(min-width:761px){
+ .layout{display:block;min-height:calc(100vh - 70px)}
+ .layout>aside{position:fixed!important;left:0;top:70px;bottom:0;width:230px;height:auto;max-height:none;overflow-y:auto;overflow-x:hidden;z-index:6}
+ .layout>main{margin-left:230px;width:calc(100% - 230px);max-width:none}
+ #appView>footer{margin-left:230px}
+}
+@media(max-width:760px){
+ .layout{display:block;padding-top:54px;min-height:calc(100vh - 62px)}
+ .layout>aside{position:fixed!important;left:0;right:0;top:62px;width:100%;height:54px;max-height:54px;min-height:54px;padding:6px 8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;z-index:6;background:#090f1af5;backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+ .layout>aside .nav{display:flex;flex-wrap:nowrap;width:max-content;min-width:100%;gap:5px}
+ .layout>aside .nav button{flex:0 0 auto;white-space:nowrap}
+ .layout>main{margin:0;width:100%;padding-top:18px}
+ #appView>footer{margin-left:0}
+}
 </style>
 </head>
 <body>
@@ -129,20 +145,26 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    finally{button.disabled=false;button.textContent="Generate Android Code";}
  });
  $("copyAndroidBtn").addEventListener("click",async()=>{try{await copyText(lastAndroidCode);setResult("androidCodeResult","Android code copied. Share it securely; it can be used only once.","success");}catch(e){setResult("androidCodeResult",e.message,"error");}});
+ let dashboardLoadPromise=null;
  async function loadAll(){
-   $("syncState").innerHTML='<i class="dot"></i> Syncing…';
-   try{
-     const data=await ownerApi("dashboard_data");
-     for(const key of Object.keys(state)) state[key]=Array.isArray(data[key])?data[key]:[];
-     render();
-     $("syncState").innerHTML='<i class="dot"></i> Synced · '+new Date().toLocaleTimeString();
-     message("globalMsg","");
-   }catch(error){
-     for(const key of Object.keys(state)) state[key]=[];
-     render();
-     $("syncState").innerHTML='<i class="dot"></i> Sync failed';
-     message("globalMsg",error.message||"Dashboard data could not be loaded.","error");
-   }
+   if(dashboardLoadPromise)return dashboardLoadPromise;
+   dashboardLoadPromise=(async()=>{
+     $("syncState").innerHTML='<i class="dot"></i> Syncing…';
+     try{
+       const data=await ownerApi("dashboard_data");
+       for(const key of Object.keys(state)) state[key]=Array.isArray(data[key])?data[key]:[];
+       render();
+       $("syncState").innerHTML='<i class="dot"></i> Live · '+new Date().toLocaleTimeString();
+       message("globalMsg","");
+       return true;
+     }catch(error){
+       // Keep last confirmed records visible; never turn a temporary API failure into fake zero counts.
+       $("syncState").innerHTML='<i class="dot"></i> Sync failed · showing last data';
+       message("globalMsg",error.message||"Dashboard data could not be loaded.","error");
+       return false;
+     }
+   })();
+   try{return await dashboardLoadPromise;}finally{dashboardLoadPromise=null;}
  }
  function combined(){
    return [
@@ -263,7 +285,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
  });
  $("refreshBtn").addEventListener("click",async()=>{try{await ownerSession();await loadAll();}catch(e){message("globalMsg",e.message,"error");showLogin();}});
  $("nav").addEventListener("click",e=>{const b=e.target.closest("button[data-section]");if(!b)return;document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".section").forEach(x=>x.classList.toggle("active",x.id===b.dataset.section));});
- window.setInterval(()=>{if(!document.hidden&&!$("appView").classList.contains("hidden"))loadAll();},30000);
+ window.setInterval(()=>{if(!document.hidden&&!$("appView").classList.contains("hidden"))loadAll();},15000);
  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&!$("appView").classList.contains("hidden"))loadAll();});
  sb.auth.onAuthStateChange(async(_event,session)=>{if(!session){showLogin();return;}if(session.user?.email?.toLowerCase()!==OWNER_EMAIL){await sb.auth.signOut();showLogin();return;}showApp(session.user);});
  (async()=>{try{const user=await ownerSession();if(user){showApp(user);await loadAll();await checkApi();}}catch(e){message("loginMsg",e.message,"error");showLogin();}})();
