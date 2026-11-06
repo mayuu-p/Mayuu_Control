@@ -5,11 +5,11 @@ Mayuu Control · Personal Device Security & Recovery Platform
 
 ## Project status
 
-The repository was intentionally emptied on 2026-11-06. This is the clean rebuild on the existing `main` branch. The Supabase project and existing PHANTOM tables/migration history were preserved. The `phantom-web` Edge Function has been restored and is deployed (version 24).
+The repository was intentionally emptied on 2026-11-06. This is the clean rebuild on the existing `main` branch. The Supabase project and existing PHANTOM tables/migration history were preserved. The `phantom-web` Edge Function has been restored and is deployed (version 25).
 
 The current web and API foundation provides:
 - Supabase Auth sign-in restricted to `mayur99@gmail.com`
-- Owner-scoped reads protected by database RLS
+- Owner-scoped dashboard reads through the owner-authenticated Edge Function; PHANTOM tables have no grants for anon, authenticated or PUBLIC roles, with RLS retained as defense in depth
 - Live device, browser enrollment, location, command, audit and redirect records
 - Online/offline display derived from server heartbeat timestamps (90-second threshold)
 - Explicit capability status; unavailable backend actions are not presented as working
