@@ -150,6 +150,11 @@ class MainActivity : Activity() {
 
     private fun startProtection() {
         if (DeviceSecrets.loadSession(this).isNullOrBlank()) { status.text = "Enroll this device before starting Protection."; return }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            status.text = "Notification permission is required so Protection remains visible. Allow notifications, then tap Start Protection again."
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7101)
+            return
+        }
         val intent = Intent(this, RecoveryService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ContextCompat.startForegroundService(this, intent) else startService(intent)
         status.text = "Protection requested. Check the persistent notification for active status and Stop."
