@@ -209,7 +209,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
   try{
    const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({action:"health"}),cache:"no-store"});
    const data=await r.json();
-   if(!r.ok||data.ok===false)throw new Error(data.message||"Health check failed (HTTP "+r.status+").");
+   if(!r.ok||data.ok===false||data.configured!==true)throw new Error(data.message||"Server configuration is incomplete (HTTP "+r.status+").");
    $("apiStatus").textContent="Ready · API "+data.api_version+" · server configuration present";
   }catch(e){$("apiStatus").textContent="Unavailable · "+e.message;}
  }
