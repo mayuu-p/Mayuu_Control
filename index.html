@@ -186,7 +186,11 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
     const t=d.kind==="Android"?latestTelemetry.get(d.id):null;
     const loc=latestLocation.get(d.kind+":"+d.id);
     const gps=loc?'<a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+encodeURIComponent(loc.latitude+","+loc.longitude)+'">'+esc(Number(loc.latitude).toFixed(6)+", "+Number(loc.longitude).toFixed(6))+' ↗</a><small>'+esc(date(loc.captured_at))+' · ±'+esc(loc.accuracy_m==null?"?":loc.accuracy_m)+" m</small>":'<span class="muted">Not shared</span>';
-    return '<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(d.battery_percent==null?(t?.battery_percent==null?"N/A":t.battery_percent+"%"):d.battery_percent+"%")+'</td><td>'+esc(t?.charging==null?"N/A":t.charging?"Yes":"No")+'</td><td>'+esc(d.network_type||t?.network_type||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version,d.app_version].filter(Boolean).join(" / "):(d.browser_info?.browser||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(d.observed_public_ip||t?.observed_public_ip||"N/A")+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td><td>'+gps+'</td><td><button class="btn ghost" data-revoke-kind="'+(d.kind==="Android"?"android":"browser")+'" data-revoke-id="'+esc(d.id)+'">Revoke</button></td></tr>';
+    const browserBattery=d.kind==="Browser"?d.browser_info?.battery_percent:null;
+    const batteryValue=d.kind==="Android"?(d.battery_percent??t?.battery_percent):browserBattery;
+    const chargingValue=d.kind==="Android"?t?.charging:d.browser_info?.charging;
+    const networkValue=d.kind==="Android"?(d.network_type||t?.network_type):(d.browser_info?.network_type||(d.browser_info?.online===false?"Offline":d.browser_info?.online===true?"Online":null));
+    return '<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(batteryValue==null?"N/A":batteryValue+"%")+'</td><td>'+esc(chargingValue==null?"N/A":chargingValue?"Yes":"No")+'</td><td>'+esc(networkValue||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version,d.app_version].filter(Boolean).join(" / "):(d.browser_info?.platform||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(d.observed_public_ip||t?.observed_public_ip||"N/A")+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td><td>'+gps+'</td><td><button class="btn ghost" data-revoke-kind="'+(d.kind==="Android"?"android":"browser")+'" data-revoke-id="'+esc(d.id)+'">Revoke</button></td></tr>';
    }));
    const activity=state.audit.slice(0,8);
    $("recentActivity").innerHTML=activity.length?activity.map(a=>'<div class="list-item"><strong>'+esc(a.event_type)+'</strong><small>'+esc(date(a.created_at))+' · '+esc(a.device_id||"System")+'</small></div>').join(""):'<div class="empty">No audit events recorded.</div>';
@@ -215,7 +219,8 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
   ["Visible Android foreground service","In Progress","Implemented in source; physical-device notification test pending"],
   ["Heartbeat + battery/network telemetry","In Progress","API deployed; end-to-end telemetry test pending"],
   ["One-shot Android GPS","In Progress","Runtime permission and upload code present; device test pending"],
-  ["Browser GPS","In Progress","Explicit browser permission and opt-in upload code present"],
+  ["Browser GPS live sharing","Implemented","Opt-in watchPosition uploads while the enrolled page remains open; browser permission required"],
+  ["Browser battery/network telemetry","In Progress","Uses browser Battery Status and Network Information APIs when supported; unsupported fields remain N/A"],
   ["Browser camera/microphone","Not Implemented","No remote media transport is deployed"],
   ["Browser WebRTC + TURN","Not Implemented","Signaling and TURN not configured"],
   ["Native Android camera/microphone","Not Implemented","CameraX/audio capture not implemented"],
