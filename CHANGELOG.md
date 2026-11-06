@@ -34,3 +34,7 @@
 - Added an Android 12+ shield-branded system splash screen and reused the PHANTOM vector logo in the native app header.
 
 - Deployed `phantom-web` version 24; public IP telemetry now accepts only trusted `cf-connecting-ip` or `x-real-ip` server headers and never falls back to client-supplied `x-forwarded-for`.
+
+- Deployed `phantom-web` version 25 with an owner-authenticated `dashboard_data` action. The web dashboard no longer queries PHANTOM tables directly.
+- Applied additive migration `20261106123046_phantom_edge_only_table_access`: revoked all table grants from `PUBLIC`, `anon` and `authenticated` for PHANTOM tables while preserving RLS policies and all data.
+- Verified PHANTOM tables no longer appear in Supabase anon/authenticated GraphQL exposure findings; remaining advisor findings are on unrelated existing application tables/functions and were left untouched.
