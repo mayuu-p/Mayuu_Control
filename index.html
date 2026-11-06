@@ -91,10 +91,10 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 const SUPABASE_URL = "https://ewvirpfovwruxshzzlaa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
 const FUNCTION_URL = SUPABASE_URL + "/functions/v1/phantom-web";
+const $ = id => document.getElementById(id);
 if(!window.supabase?.createClient){$("connection").textContent="Supabase SDK failed to load";throw new Error("Supabase SDK CDN did not load. Check internet/CDN access.");}
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 $("connection").innerHTML='<span class="dot"></span>SDK loaded · Checking connection';
-const $ = id => document.getElementById(id);
 let ownerData = [], locationsData = [], nativeDevicesData = [], nativeLocationsData = [], currentInvite = "", poller = null, redirectData = [];
 function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",3200)}
 function show(id){["authView","ownerView","enrollView"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
