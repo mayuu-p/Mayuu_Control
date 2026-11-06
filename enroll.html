@@ -5,7 +5,8 @@
 </style></head><body><main class="card">
 <div class="brand"><div class="logo"><img src="assets/phantom-logo.svg" alt="PHANTOM shield"></div><div><strong>PHANTOM RECOVER</strong><small>MAYUU CONTROL · CONSENT-BASED DEVICE SECURITY</small></div></div>
 <h1>Enroll this browser</h1><p>You are being invited to connect this browser to the PHANTOM RECOVER owner account. Review the details before allowing enrollment.</p>
-<div class="disclosure"><h2>Owner and purpose</h2><p style="margin:0;color:#d5e1ef">Owner: <strong>mayur99@gmail.com</strong><br>Purpose: Personal device recovery, device status and user-approved location sharing.</p><h2 style="margin-top:16px">What enrollment does</h2><ul><li>Registers this browser with the owner dashboard.</li><li>Sends a heartbeat only while this page remains open.</li><li>Reports basic browser information and server-observed public IP.</li><li>Does not enable camera, microphone, screen sharing or GPS automatically.</li><li>Location is shared only after you press Start Location Sharing and approve the browser prompt.</li></ul><p style="margin:10px 0 0;font-size:12px">You can deny enrollment or stop the session at any time. VPNs, carrier NAT and shared networks may affect IP information. IP address is not GPS.</p></div>
+<div class="disclosure"><h2>Owner and purpose</h2><p style="margin:0;color:#d5e1ef">Owner: <strong>mayur99@gmail.com</strong><br>Purpose: Personal device recovery, device status and user-approved location sharing.</p><h2 style="margin-top:16px">What enrollment does</h2><ul><li>Registers this browser with the owner dashboard.</li><li>Sends a heartbeat only while this page remains open.</li><li>Reports browser/device information, online state and network type where supported; battery percentage and charging state are included only if this browser exposes those APIs.</li>
+<li>Server-observed public IP is shown separately and is not a GPS location.</li><li>Does not enable camera, microphone, screen sharing or GPS automatically.</li><li>Location is shared only after you press Start Location Sharing and approve the browser prompt.</li></ul><p style="margin:10px 0 0;font-size:12px">You can deny enrollment or stop the session at any time. VPNs, carrier NAT and shared networks may affect IP information. IP address is not GPS.</p></div>
 <div id="status" class="msg">Waiting for your decision. No permissions have been requested.</div>
 <div class="actions" id="consentActions"><button class="btn primary" id="allowBtn">Allow enrollment</button><button class="btn danger" id="denyBtn">Deny</button></div>
 <section id="sessionPanel" class="hidden">
@@ -24,7 +25,7 @@
  const invite=params.get("invite")||"";
  let secret=sessionStorage.getItem("phantom_browser_session")||"";
  let enrollment=sessionStorage.getItem("phantom_browser_enrollment")||"";
- let heartbeat=null,watchId=null,stopped=false;
+ let heartbeat=null,watchId=null,stopped=false,batteryHandle=null,lastPosition=null;
  function show(text,kind=""){ $("status").className="msg "+kind;$("status").textContent=text; }
  async function api(action,body={},device=false){
   const headers={"Content-Type":"application/json","apikey":KEY};
@@ -36,17 +37,28 @@
  }
  function stopLocation(){
   if(watchId!==null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);
-  watchId=null;$("locationStart").disabled=false;$("locationStop").disabled=true;$("locationInfo").textContent="Location sharing is off.";
+  watchId=null;$("locationStart").disabled=false;$("locationStop").disabled=true;
+  $("locationInfo").textContent=lastPosition?"Sharing stopped · last fix "+lastPosition:"Location sharing is off.";
+ }
+ async function collectBrowserTelemetry(){
+  const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  let batteryPercent=null,charging=null;
+  try{if(navigator.getBattery){if(!batteryHandle)batteryHandle=await navigator.getBattery();batteryPercent=Math.max(0,Math.min(100,Math.round(batteryHandle.level*100)));charging=!!batteryHandle.charging;}}catch(_){}
+  return {userAgent:navigator.userAgent,platform:navigator.userAgentData?.platform||navigator.platform||"",language:navigator.language||"",online:navigator.onLine,
+   network_type:connection?.effectiveType||connection?.type||"",downlink_mbps:Number.isFinite(connection?.downlink)?connection.downlink:null,
+   rtt_ms:Number.isFinite(connection?.rtt)?connection.rtt:null,battery_percent:batteryPercent,charging,
+   screen_width:screen.width||null,screen_height:screen.height||null};
  }
  function stopHeartbeat(){if(heartbeat!==null)clearInterval(heartbeat);heartbeat=null;}
  function endLocal(){stopLocation();stopHeartbeat();secret="";sessionStorage.removeItem("phantom_browser_session");sessionStorage.removeItem("phantom_browser_enrollment");stopped=true;$("sessionPanel").classList.add("hidden");show("This browser session has ended. No background activity continues.","ok");}
- async function heartbeatOnce(){if(!secret||stopped)return;try{await api("web_heartbeat",{},true)}catch(e){show("Connection issue: "+e.message,"err");if(/expired|revoked|session is invalid/i.test(e.message)){endLocal();}}}
+ async function heartbeatOnce(){if(!secret||stopped)return;try{const browser_info=await collectBrowserTelemetry();await api("web_heartbeat",{browser_info},true)}catch(e){show("Connection issue: "+e.message,"err");if(/expired|revoked|session is invalid/i.test(e.message)){endLocal();}}}
  function startHeartbeat(){stopHeartbeat();heartbeat=setInterval(heartbeatOnce,30000);}
  $("allowBtn").addEventListener("click",async()=>{
   $("allowBtn").disabled=true;show("Creating your browser enrollment…");
   try{
    if(!/^[0-9a-f]{64}$/i.test(invite))throw new Error("Invalid or missing invitation link.");
-   const data=await api("web_redeem",{invite,consent:true,label:"Browser · "+(navigator.platform||"Device"),browser_info:{userAgent:navigator.userAgent,language:navigator.language}});
+   const browser_info=await collectBrowserTelemetry();
+   const data=await api("web_redeem",{invite,consent:true,label:"Browser · "+(navigator.userAgentData?.platform||navigator.platform||"Device"),browser_info});
    secret=data.session_secret;enrollment=data.enrollment_id;
    sessionStorage.setItem("phantom_browser_session",secret);sessionStorage.setItem("phantom_browser_enrollment",enrollment);
    history.replaceState({}, "", location.pathname+"?session=active");
@@ -61,12 +73,16 @@
   watchId=navigator.geolocation.watchPosition(async pos=>{
    if(!secret||stopped)return;
    const coords=pos.coords;
-   $("locationInfo").textContent="Sharing · accuracy "+Math.round(coords.accuracy)+" m · "+new Date(pos.timestamp).toLocaleTimeString();
-   try{await api("web_location",{latitude:coords.latitude,longitude:coords.longitude,accuracy_m:coords.accuracy,captured_at:new Date(pos.timestamp).toISOString()},true)}
+   lastPosition=coords.latitude.toFixed(6)+", "+coords.longitude.toFixed(6);
+   $("locationInfo").textContent="LIVE SHARING · "+lastPosition+" · accuracy ±"+Math.round(coords.accuracy)+" m · "+new Date(pos.timestamp).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true});
+   try{await api("web_location",{latitude:coords.latitude,longitude:coords.longitude,accuracy_m:coords.accuracy,captured_at:new Date(pos.timestamp).toISOString()},true);
+    $("locationInfo").textContent="LIVE · "+lastPosition+" · ±"+Math.round(coords.accuracy)+" m · saved at "+new Date(pos.timestamp).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true});}
    catch(e){show("Location upload failed: "+e.message,"err");stopLocation();}
-  },err=>{show("Location permission or GPS error: "+err.message,"err");stopLocation();},{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+  },err=>{show("Location permission or GPS error: "+err.message,"err");stopLocation();},{enableHighAccuracy:true,maximumAge:5000,timeout:30000});
  });
  $("locationStop").addEventListener("click",stopLocation);
+ window.addEventListener("online",heartbeatOnce);
+ window.addEventListener("offline",()=>{if(secret&&!stopped)show("Browser is offline. Heartbeat and location uploads will resume when connection returns.","err");});
  async function stopServerSession(){
   stopLocation();stopHeartbeat();
   if(secret){try{await api("web_session_stop",{},true)}catch(e){show("Could not confirm server session stop: "+e.message,"err");return false;}}
