@@ -87,9 +87,7 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
 
 <script>
-const $ = id => document.getElementById(id);
-const connection = $("connection");
-connection.textContent = "Starting secure connection…";
+document.getElementById("connection").textContent = "Starting secure connection…";
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('connection').textContent='Supabase SDK CDN blocked';document.getElementById('authMessage').textContent='Could not load Supabase SDK. Check internet or content blocker and reload.'"></script>
 <script>
