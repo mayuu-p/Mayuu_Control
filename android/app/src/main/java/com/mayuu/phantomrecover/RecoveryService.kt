@@ -143,8 +143,18 @@ class RecoveryService : Service() {
             val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.bufferedReader()?.use { it.readText() } ?: "{}"
             val result = JSONObject(body)
-            if (connection.responseCode !in 200..299 || !result.optBoolean("ok", true))
+            if (connection.responseCode !in 200..299 || !result.optBoolean("ok", true)) {
+                if (connection.responseCode == 401 || connection.responseCode == 403) {
+                    DeviceSecrets.clearSession(this)
+                    handler.post {
+                        handler.removeCallbacks(heartbeatLoop)
+                        notifyOwnerRequest("PHANTOM session ended", "This device session expired or was revoked. Open the app to enroll again if needed.")
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
+                }
                 throw IllegalStateException(result.optString("message", "API request failed"))
+            }
             return result
         } finally { connection.disconnect() }
     }
