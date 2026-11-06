@@ -92,20 +92,22 @@ async function deviceSession(req: Request) {
   const raw = req.headers.get("x-device-session") || "";
   if (raw.length < 32 || raw.length > 256) throw new ApiError(401, "invalid_device_session", "Device session is invalid.");
   const hash = await sha256(raw);
-  const rows = await select("phantom_devices", { select: "id,owner_user_id,status,revoked_at", session_hash: "eq." + hash, limit: "1" });
+  const rows = await select("phantom_devices", { select: "id,owner_user_id,status,revoked_at,consented_at", session_hash: "eq." + hash, limit: "1" });
   const device = rows?.[0];
   if (!device) throw new ApiError(401, "invalid_device_session", "Device session is invalid.");
   if (device.status === "revoked" || device.revoked_at) throw new ApiError(403, "revoked_device", "This device has been revoked.");
+  if (!device.consented_at || Date.now() - new Date(device.consented_at).getTime() > 90 * 24 * 60 * 60_000) throw new ApiError(401, "session_expired", "Device session expired. Enroll this device again.");
   return device;
 }
 async function webSession(req: Request) {
   const raw = req.headers.get("x-device-session") || "";
   if (raw.length < 32 || raw.length > 256) throw new ApiError(401, "invalid_web_session", "Browser session is invalid.");
   const hash = await sha256(raw);
-  const rows = await select("phantom_web_enrollments", { select: "id,owner_user_id,status,revoked_at", session_hash: "eq." + hash, limit: "1" });
+  const rows = await select("phantom_web_enrollments", { select: "id,owner_user_id,status,revoked_at,consented_at", session_hash: "eq." + hash, limit: "1" });
   const enrollment = rows?.[0];
   if (!enrollment) throw new ApiError(401, "invalid_web_session", "Browser session is invalid.");
   if (enrollment.status === "revoked" || enrollment.revoked_at) throw new ApiError(403, "revoked_device", "This browser enrollment has been revoked.");
+  if (!enrollment.consented_at || Date.now() - new Date(enrollment.consented_at).getTime() > 90 * 24 * 60 * 60_000) throw new ApiError(401, "session_expired", "Browser session expired. Enroll this browser again.");
   return enrollment;
 }
 async function audit(event_type: string, actor_user_id: string | null, device_id: string | null, event_details: Record<string, unknown> = {}) {
@@ -225,6 +227,13 @@ async function handle(action: string, body: any, req: Request) {
     const rows = await insert("phantom_device_commands", { device_id, requested_by: user.id, command_type: type, payload, expires_at });
     await audit("recovery_command_sent", user.id, device_id, { command_type: type, command_id: rows?.[0]?.id });
     return { command: rows?.[0] || null };
+  }
+  if (action === "device_session_stop") {
+    const device = await deviceSession(req);
+    const rows = await patch("phantom_devices", { id: "eq." + device.id, status: "neq.revoked" }, { status: "revoked", revoked_at: nowIso(), session_hash: null, updated_at: nowIso() });
+    if (!rows?.length) throw new ApiError(409, "session_already_stopped", "This device session has already ended.");
+    await audit("device_session_stopped", null, device.id, {});
+    return { ok: true, stopped_at: nowIso() };
   }
   if (action === "device_revoke") {
     const user = await owner(req), device_id = body?.device_id;
