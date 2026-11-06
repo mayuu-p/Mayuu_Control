@@ -154,7 +154,11 @@ function renderCapabilities(){
  [ "Android heartbeat",nativeOnline.length?"Active · recent heartbeat":nativeLatest?"Stale · no heartbeat in last 2 minutes":"Unavailable · no Android agent","Visible foreground service; Android may stop it"],
  [ "Browser ring alert",latest&&liveStatus(latest)==="online"?"Command queue available":"Unavailable · browser offline","Enrolled browser tab must remain open"],
  [ "Camera / microphone permission",b.permissionState?("Camera: "+(b.permissionState.camera||"unknown")+" · Mic: "+(b.permissionState.microphone||"unknown")):"Not reported","Owner request requires the enrolled person to approve the browser prompt"],
- [ "Location permission",b.permissionState?.geolocation||"Not reported","Location sharing starts only after the enrolled person approves it"]
+ [ "Location permission",b.permissionState?.geolocation||"Not reported","Location sharing starts only after the enrolled person approves it"],
+ [ "Native Android screen mirroring","Not implemented","Android MediaProjection consent flow and live transport are not yet built"],
+ [ "Native Android camera","Not implemented","Browser camera sharing is separate and requires a live browser tab plus device approval"],
+ [ "Native Android microphone","Not implemented","Browser microphone sharing is separate and requires a live browser tab plus device approval"],
+ [ "App usage / notifications / call data","Not collected","Private app activity, notification contents and call records are outside this product"]
  ];
  $("capabilityMatrix").innerHTML=rows.map(r=>'<div class="caprow"><div><b>'+safe(r[0])+'</b><div class="muted">'+safe(r[2])+'</div></div><div class="capvalue">'+safe(r[1])+'</div></div>').join("");
 }
