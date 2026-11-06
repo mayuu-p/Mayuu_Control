@@ -284,6 +284,17 @@ Deno.serve(async (req) => {
         event_details: { invite_id: data.id, label, expires_at: expiresAt } });
       return json({ token, inviteId: data.id, expiresAt });
     }
+    if (action === "redirect_visit") {
+      const raw=String(body.token||"");
+      if(!/^[a-f0-9]{64}$/.test(raw)) return json({error:"Invalid redirect link."},400);
+      const {data:invite,error}=await admin.from("phantom_web_invites").select("id,owner_user_id,label,destination_url,expires_at").eq("token_hash",await hash(raw)).maybeSingle();
+      if(error||!invite||!invite.destination_url||new Date(invite.expires_at).getTime()<Date.now()) return json({error:"Link invalid or expired."},410);
+      const ip=clientIp(req);let ipLocation:Record<string,unknown>={};
+      if(ip){try{const geo=await fetch("https://ipwho.is/"+encodeURIComponent(ip),{headers:{"Accept":"application/json"}});if(geo.ok){const g=await geo.json();if(g.success)ipLocation={city:g.city||null,region:g.region||null,country:g.country||null,latitude:g.latitude||null,longitude:g.longitude||null,accuracy:"approximate"};}}catch{}}
+      const {error:insertError}=await admin.from("phantom_redirect_clicks").insert({invite_id:invite.id,owner_user_id:invite.owner_user_id,label:invite.label,destination_url:invite.destination_url,observed_public_ip:ip,browser_info:body.browserInfo&&typeof body.browserInfo==="object"?body.browserInfo:{},ip_location:ipLocation});
+      if(insertError) throw insertError;
+      return json({destinationUrl:invite.destination_url});
+    }
     if (action === "owner_devices") {
       const { data, error } = await admin.from("phantom_devices")
         .select("id,device_label,manufacturer,model,android_version,app_version,status,battery_percent,network_type,last_seen_at,last_location_at,created_at")
@@ -332,6 +343,20 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    if (action === "create_redirect_link") {
+      const label=String(body.label||"").trim().slice(0,80);
+      let destinationUrl="";
+      try { const u=new URL(String(body.destinationUrl||"")); if(!["http:","https:"].includes(u.protocol)) throw new Error(); destinationUrl=u.href; } catch { return json({error:"Enter a valid http/https destination URL."},400); }
+      if(!label) return json({error:"Enter a label."},400);
+      const token=randomToken(), expiresAt=new Date(Date.now()+30*60*1000).toISOString();
+      const {data,error}=await admin.from("phantom_web_invites").insert({owner_user_id:owner.id,label,token_hash:await hash(token),expires_at:expiresAt,destination_url:destinationUrl}).select("id,expires_at").single();
+      if(error) throw error;
+      return json({token,inviteId:data.id,expiresAt});
+    }
+    if (action === "owner_redirect_clicks") {
+      const {data,error}=await admin.from("phantom_redirect_clicks").select("id,label,destination_url,clicked_at,observed_public_ip,browser_info,ip_location").eq("owner_user_id",owner.id).order("clicked_at",{ascending:false}).limit(200);
+      if(error) throw error; return json({clicks:data||[]});
+    }
     if (action === "create_invite") {
       const label = String(body.label || "My device").trim().slice(0, 80);
       if (!label) return json({ error: "Enter a device label." }, 400);
