@@ -1,0 +1,4 @@
+project_id = "ewvirpfovwruxshzzlaa"
+
+[functions.phantom-web]
+verify_jwt = false
