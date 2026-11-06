@@ -89,18 +89,37 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 <script>
 document.getElementById("connection").textContent = "Starting secure connection…";
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('connection').textContent='Supabase SDK CDN blocked';document.getElementById('authMessage').textContent='Could not load Supabase SDK. Check internet or content blocker and reload.'"></script>
+
 <script>
 (async function startPhantomApp(){
 /* Same predictable DOM-helper pattern used by the QR owner page.
    Keep PHANTOM's own Supabase project and owner authorization separate. */
 const $ = id => document.getElementById(id);
 const connection = $("connection");
-if (!window.supabase || typeof window.supabase.createClient !== "function") {
-  connection.textContent = "Supabase SDK unavailable";
-  $("authMessage").textContent = "Supabase library did not load. Check internet connection and reload.";
-  return;
+async function loadSupabaseSdk(){
+  if(window.supabase && typeof window.supabase.createClient === "function") return;
+  connection.textContent = "Loading Supabase SDK…";
+  const sources = [
+    "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
+    "https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"
+  ];
+  for(const src of sources){
+    try{
+      await new Promise((resolve,reject)=>{
+        const script=document.createElement("script");
+        const timer=setTimeout(()=>{script.remove();reject(new Error("SDK load timed out"))},9000);
+        script.src=src;
+        script.async=true;
+        script.onload=()=>{clearTimeout(timer);resolve()};
+        script.onerror=()=>{clearTimeout(timer);script.remove();reject(new Error("SDK CDN unavailable"))};
+        document.head.appendChild(script);
+      });
+      if(window.supabase && typeof window.supabase.createClient === "function") return;
+    }catch(err){console.warn("Supabase SDK source failed:",src,err)}
+  }
+  throw new Error("Supabase SDK could not load from either CDN. Check internet, DNS or content blocker.");
 }
+await loadSupabaseSdk();
 const SUPABASE_URL = "https://ewvirpfovwruxshzzlaa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
 const FUNCTION_URL = SUPABASE_URL + "/functions/v1/phantom-web";
@@ -420,5 +439,18 @@ refresh = async function() {
   const message = document.getElementById("authMessage");
   if (status) status.textContent = "Startup error";
   if (message) message.textContent = "App could not start: " + (error?.message || String(error));
+  if (status) status.title = error?.stack || String(error);
+});
+window.addEventListener("error", event => {
+  const status=document.getElementById("connection");
+  const message=document.getElementById("authMessage");
+  if(status && status.textContent.includes("Starting")) status.textContent="JavaScript startup error";
+  if(message && !message.textContent) message.textContent=event.message || "JavaScript initialization error.";
+});
+window.addEventListener("unhandledrejection", event => {
+  const status=document.getElementById("connection");
+  const message=document.getElementById("authMessage");
+  if(status) status.textContent="Startup request failed";
+  if(message) message.textContent=event.reason?.message || "A startup request failed.";
 });
 </script></body></html>
