@@ -162,7 +162,7 @@ async function runAuth(mode){
    message.textContent="Login successful. Dashboard loading…";
    await ownerMode();
   }else{
-   const {data,error}=await sb.auth.signUp({email,password,{emailRedirectTo:location.origin+location.pathname}});
+   const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
    if(error)throw error;
    message.textContent=data.session?"Account created. Dashboard opening…":"Account request successful. Email inbox/spam mein verification link check karo, verify karne ke baad Sign in karo.";
    if(data.session)await ownerMode();
