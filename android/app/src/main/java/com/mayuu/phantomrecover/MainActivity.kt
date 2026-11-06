@@ -83,6 +83,7 @@ class MainActivity : Activity() {
         }
         content.addView(consent)
         enrollButton = addButton(content, "Enroll this device") { enroll() }
+        addButton(content, "Deny Enrollment") { denyEnrollment() }
         addText(content, "RECOVERY PROTECTION", 10f, Color.rgb(25, 217, 245), 24)
         addButton(content, "Start Protection") { startProtection() }
         addButton(content, "Stop Protection") { stopProtection() }
@@ -122,6 +123,27 @@ class MainActivity : Activity() {
         } else {
             status.text = "Enrolled · Device ID: ${id ?: "registered"}\nSession secret protected by Android Keystore AES-GCM."
             enrollButton.isEnabled = false
+        }
+    }
+
+    private fun denyEnrollment() {
+        val code = codeInput.text.toString().trim().lowercase()
+        if (!Regex("^[0-9a-f]{64}$").matches(code)) {
+            status.text = "Enter the invitation code to record your denial."
+            return
+        }
+        status.text = "Recording your consent decision…"
+        worker.execute {
+            try {
+                post(JSONObject().put("action", "device_consent_deny").put("code", code), null)
+                runOnUiThread {
+                    codeInput.text.clear()
+                    consent.isChecked = false
+                    status.text = "Consent denial recorded by server. This device was not enrolled."
+                }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "Could not record denial: ${e.message}" }
+            }
         }
     }
 
