@@ -85,6 +85,50 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 </section>
 <p class="foot">PHANTOM RECOVER · Web MVP · Consent-first · No covert tracking · v1.0</p>
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
+<script>
+(function(){
+ const URL_BASE="https://ewvirpfovwruxshzzlaa.supabase.co";
+ const KEY="sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
+ const STORAGE="sb-ewvirpfovwruxshzzlaa-auth-token";
+ let busy=false;
+ function message(t){const el=document.getElementById("authMessage");if(el)el.textContent=t}
+ function setBusy(v){["signin","signup"].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=v})}
+ function saveSession(session){
+  if(!session||!session.access_token||!session.refresh_token)return false;
+  session.expires_at=session.expires_at||Math.floor(Date.now()/1000)+(session.expires_in||3600);
+  localStorage.setItem(STORAGE,JSON.stringify(session));return true;
+ }
+ async function auth(mode){
+  if(busy)return;busy=true;setBusy(true);
+  try{
+   const email=(document.getElementById("email")?.value||"").trim().toLowerCase();
+   const password=document.getElementById("password")?.value||"";
+   if(!email||!password)throw new Error("Email aur password enter karo.");
+   if(password.length<6)throw new Error("Password kam se kam 6 characters ka hona chahiye.");
+   message(mode==="signin"?"Signing in…":"Creating account…");
+   const endpoint=mode==="signin"?"/auth/v1/token?grant_type=password":"/auth/v1/signup";
+   const response=await fetch(URL_BASE+endpoint,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({email,password})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.msg||data.message||data.error_description||data.error||("Supabase returned HTTP "+response.status));
+   if(mode==="signin"){
+    if(!saveSession(data))throw new Error("Supabase ne login session return nahi ki. Email verification required ho sakti hai.");
+    message("Login successful. Dashboard opening…");
+    location.reload();
+   }else if(data.access_token&&saveSession(data)){
+    message("Account created. Dashboard opening…");location.reload();
+   }else{
+    message("Account request successful. Email inbox/spam mein verification link check karo, verify hone ke baad Sign in karo.");
+   }
+  }catch(e){message(e.message||"Authentication failed. Please try again.");}
+  finally{busy=false;setBusy(false)}
+ }
+ document.addEventListener("click",function(e){
+  const target=e.target.closest("#signin,#signup");if(!target)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  auth(target.id==="signin"?"signin":"signup");
+ },true);
+})();
+</script>
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = "https://ewvirpfovwruxshzzlaa.supabase.co";
