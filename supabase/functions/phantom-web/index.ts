@@ -195,7 +195,7 @@ async function handle(action: string, body: any, req: Request) {
       owner_user_id: "eq." + user.id, order: "clicked_at.desc", limit: "500"
     });
     const redirectTelemetry = await select("phantom_redirect_telemetry", {
-      select: "id,invite_id,visitor_session_hash,consent_state,consented_at,revoked_at,expires_at,battery_percent,charging,network_type,online,latitude,longitude,accuracy_m,updated_at,created_at",
+      select: "id,invite_id,consent_state,consented_at,revoked_at,expires_at,battery_percent,charging,network_type,online,latitude,longitude,accuracy_m,updated_at,created_at",
       owner_user_id: "eq." + user.id, order: "updated_at.desc", limit: "1000"
     });
     const auditByActor = await select("phantom_audit_logs", {
