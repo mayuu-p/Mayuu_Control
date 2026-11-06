@@ -85,7 +85,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
  const ONLINE_WINDOW_MS = 90_000;
  const $ = id => document.getElementById(id);
  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
- let state = {devices:[],web:[],telemetry:[],locations:[],webLocations:[],audit:[],commands:[],webCommands:[],invites:[],tokens:[],redirects:[]};
+ let state = {devices:[],web:[],telemetry:[],locations:[],webLocations:[],audit:[],commands:[],webCommands:[],invites:[],tokens:[],redirectLinks:[],redirects:[]};
  const esc = v => String(v ?? "—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const date = v => v ? new Date(v).toLocaleString() : "—";
  const freshness = v => {if(!v)return "Unknown";const age=Date.now()-new Date(v).getTime();if(age<5*60_000)return "Fresh";if(age<60*60_000)return "Recent";return "Stale";};
@@ -108,7 +108,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    if(error) throw new Error(name+": "+error.message);
    return data||[];
  }
- let lastBrowserLink="",lastAndroidCode="";
+ let lastBrowserLink="",lastAndroidCode="",lastRedirectLink="",lastRedirectId="";
  async function ownerApi(action,payload={}){
    const {data,error}=await sb.auth.getSession();if(error)throw error;
    const token=data.session?.access_token;if(!token)throw new Error("Owner session expired. Sign in again.");
@@ -121,14 +121,14 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
  async function copyText(value){if(!value)throw new Error("Nothing to copy.");if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(value);}else{const temp=document.createElement("textarea");temp.value=value;document.body.appendChild(temp);temp.select();document.execCommand("copy");temp.remove();}}
  $("generateBrowserBtn").addEventListener("click",async()=>{
    const button=$("generateBrowserBtn");button.disabled=true;button.textContent="Generating…";setResult("browserInviteResult","");
-   try{const result=await ownerApi("browser_invite_create",{label:$("browserLabel").value.trim()});lastBrowserLink=result.enrollment_url;$("copyBrowserBtn").classList.remove("hidden");setResult("browserInviteResult","Server confirmed invitation. Expires: "+date(result.expires_at),"success");}
+   try{const result=await ownerApi("browser_invite_create",{label:$("browserLabel").value.trim()});lastBrowserLink=result.enrollment_url;$("copyBrowserBtn").classList.remove("hidden");$("browserInviteResult").innerHTML='<div class="msg success">Enrollment link: <a href="'+esc(lastBrowserLink)+'" target="_blank" rel="noopener">'+esc(lastBrowserLink)+'</a><br>Expires: '+esc(date(result.expires_at))+'</div>';}
    catch(e){setResult("browserInviteResult",e.message,"error");}
    finally{button.disabled=false;button.textContent="Generate Browser Enrollment Link";}
  });
  $("copyBrowserBtn").addEventListener("click",async()=>{try{await copyText(lastBrowserLink);setResult("browserInviteResult","Enrollment link copied.","success");}catch(e){setResult("browserInviteResult",e.message,"error");}});
  $("generateAndroidBtn").addEventListener("click",async()=>{
    const button=$("generateAndroidBtn");button.disabled=true;button.textContent="Generating…";setResult("androidCodeResult","");
-   try{const result=await ownerApi("android_code_create",{device_label:$("androidLabel").value.trim()});lastAndroidCode=result.code;$("copyAndroidBtn").classList.remove("hidden");setResult("androidCodeResult","Server confirmed code. Expires: "+date(result.expires_at),"success");}
+   try{const result=await ownerApi("android_code_create",{device_label:$("androidLabel").value.trim()});lastAndroidCode=result.code;$("copyAndroidBtn").classList.remove("hidden");$("androidCodeResult").innerHTML='<div class="msg success">One-time code: <span class="mono">'+esc(lastAndroidCode)+'</span><br>Expires: '+esc(date(result.expires_at))+'</div>';}
    catch(e){setResult("androidCodeResult",e.message,"error");}
    finally{button.disabled=false;button.textContent="Generate Android Code";}
  });
@@ -145,6 +145,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
     ["commands",()=>loadTable("phantom_device_commands","id,device_id,command_type,status,expires_at,acknowledged_at,completed_at,created_at","created_at")],
     ["webCommands",()=>loadTable("phantom_web_commands","id,enrollment_id,command,status,created_at,acknowledged_at","created_at")],
     ["invites",async()=>{const {data,error}=await sb.from("phantom_web_invites").select("id,label,expires_at,redeemed_at,created_at,destination_url").is("destination_url",null).order("created_at",{ascending:false}).limit(200);if(error)throw new Error("phantom_web_invites: "+error.message);return data||[];}],
+    ["redirectLinks",async()=>{const {data,error}=await sb.from("phantom_web_invites").select("id,label,destination_url,expires_at,created_at").not("destination_url","is",null).order("created_at",{ascending:false}).limit(200);if(error)throw new Error("phantom_web_invites redirects: "+error.message);return data||[];}],
     ["tokens",()=>loadTable("phantom_enrollment_tokens","id,device_label,expires_at,redeemed_at,created_at","created_at")],
     ["redirects",()=>loadTable("phantom_redirect_clicks","id,invite_id,label,destination_url,clicked_at,observed_public_ip","clicked_at")]
    ];
@@ -182,9 +183,13 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    $("commandTable").innerHTML=table(["Command","Device / Enrollment","Status","Created","Expires / Ack"],[...state.commands.map(c=>'<tr><td>'+esc(c.command_type)+'</td><td class="mono">'+esc(c.device_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.expires_at))+' / '+esc(date(c.acknowledged_at))+'</td></tr>'),...state.webCommands.map(c=>'<tr><td>'+esc(c.command)+'</td><td class="mono">'+esc(c.enrollment_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.acknowledged_at))+'</td></tr>')]);
    $("tokenTable").innerHTML=table(["Device label","Created","Expires","Redeemed"],state.tokens.map(t=>'<tr><td>'+esc(t.device_label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
    $("inviteTable").innerHTML=table(["Label","Created","Expires","Redeemed"],state.invites.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
-   const redirectGroups=new Map();
-   for(const click of state.redirects){const key=click.label+"|"+click.destination_url;const item=redirectGroups.get(key)||{label:click.label,destination_url:click.destination_url,visits:0,last:null};item.visits++;if(!item.last||new Date(click.clicked_at)>new Date(item.last))item.last=click.clicked_at;redirectGroups.set(key,item);}
-   $("redirectTable").innerHTML=table(["Label","Destination","Visits","Last visit"],Array.from(redirectGroups.values()).map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(t.destination_url)+'</td><td>'+esc(t.visits)+'</td><td>'+esc(date(t.last))+'</td></tr>'));
+   const redirectVisits=new Map();
+   for(const click of state.redirects){redirectVisits.set(click.invite_id,(redirectVisits.get(click.invite_id)||0)+1);}
+   $("redirectTable").innerHTML=table(["Label","Created","Link","Destination","Expiry","Visits"],state.redirectLinks.map(link=>{
+    const linkCell=lastRedirectId===link.id&&lastRedirectLink?'<a target="_blank" rel="noopener" href="'+esc(lastRedirectLink)+'">Open latest link ↗</a>':'<span class="muted">Raw token shown once at creation</span>';
+    return '<tr><td>'+esc(link.label)+'</td><td>'+esc(date(link.created_at))+'</td><td>'+linkCell+'</td><td>'+esc(link.destination_url)+'</td><td>'+esc(date(link.expires_at))+'</td><td>'+esc(redirectVisits.get(link.id)||0)+'</td></tr>';
+   }));
+
  }
  const capabilities=[
   ["Owner authentication","In Progress","Supabase Auth + allowlist coded; live sign-in test pending"],
@@ -223,10 +228,9 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
   }catch(err){message("loginMsg",err.message||"Sign-in failed. Check credentials and network.","error");}
   finally{btn.disabled=false;btn.textContent="Sign in securely";}
  });
- let lastRedirectLink="";
  $("generateRedirectBtn").addEventListener("click",async()=>{
    const button=$("generateRedirectBtn");button.disabled=true;button.textContent="Generating…";message("redirectResult","");
-   try{const result=await ownerApi("redirect_create",{label:$("redirectLabel").value.trim(),destination_url:$("redirectDestination").value.trim()});lastRedirectLink=result.redirect_url;$("copyRedirectBtn").classList.remove("hidden");message("redirectResult","Server confirmed redirect link. Expires: "+date(result.expires_at),"success");}
+   try{const result=await ownerApi("redirect_create",{label:$("redirectLabel").value.trim(),destination_url:$("redirectDestination").value.trim()});lastRedirectLink=result.redirect_url;lastRedirectId=result.id;$("copyRedirectBtn").classList.remove("hidden");$("redirectResult").innerHTML='<div class="msg success">Redirect link: <a href="'+esc(lastRedirectLink)+'" target="_blank" rel="noopener">'+esc(lastRedirectLink)+'</a><br>Expires: '+esc(date(result.expires_at))+'</div>';await loadAll();}
    catch(e){message("redirectResult",e.message,"error");}
    finally{button.disabled=false;button.textContent="Generate Redirect Link";}
  });
