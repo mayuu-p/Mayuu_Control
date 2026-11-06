@@ -13,3 +13,13 @@
 - Added Android 0.3.0 foundation with Keystore AES-GCM, visible foreground service, 30-second heartbeat, telemetry, one-shot GPS and Stop Protection.
 - Added GitHub Actions Android build; debug APK artifact produced successfully (artifact ID 13500803342).
 - Hardened PHANTOM table privileges: anonymous access revoked; authenticated clients receive SELECT only; writes are server-mediated.
+
+- Deployed `phantom-web` version 20 with a backend/database health check.
+- Added 90-day device/browser session expiry and server-confirmed Android Stop Session.
+- Added safe Android re-enrollment after session expiry or revocation.
+- Added owner recovery command UI for a single selected online Android device; commands expire after five minutes.
+- Added owner revocation controls for both Android and browser enrollments.
+- Added location coordinate copy controls, map links and freshness labels.
+- Added redirect link creation and privacy-minimal aggregate visit tracking.
+- Added a shared original shield/diamond SVG logo for web, enrollment and redirect pages.
+- Added automated inline JavaScript syntax and public-secret hygiene validation workflow.
