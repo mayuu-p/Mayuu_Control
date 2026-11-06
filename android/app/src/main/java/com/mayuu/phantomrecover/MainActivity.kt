@@ -82,6 +82,7 @@ class MainActivity : Activity() {
         addText(content, "RECOVERY PROTECTION", 10f, Color.rgb(25, 217, 245), 24)
         addButton(content, "Start Protection") { startProtection() }
         addButton(content, "Stop Protection") { stopProtection() }
+        addButton(content, "Stop Session & Unenroll") { stopSession() }
         addText(content, "LOCATION", 10f, Color.rgb(25, 217, 245), 22)
         addButton(content, "Share Current Location Once") { requestOneShotLocation() }
         addText(content, "SENSITIVE CAPABILITIES", 10f, Color.rgb(25, 217, 245), 22)
@@ -156,6 +157,28 @@ class MainActivity : Activity() {
     private fun stopProtection() {
         stopService(Intent(this, RecoveryService::class.java))
         status.text = "Protection stopped on this device. Server status becomes offline after heartbeat timeout."
+    }
+
+    private fun stopSession() {
+        val secret = DeviceSecrets.loadSession(this)
+        if (secret.isNullOrBlank()) {
+            status.text = "No active device session."
+            return
+        }
+        status.text = "Ending device session securely…"
+        worker.execute {
+            try {
+                post(JSONObject().put("action", "device_session_stop"), secret)
+                DeviceSecrets.clearSession(this)
+                runOnUiThread {
+                    stopService(Intent(this, RecoveryService::class.java))
+                    status.text = "Server confirmed session termination. This device is unenrolled."
+                    refreshState()
+                }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "Could not confirm session termination: ${e.message}" }
+            }
+        }
     }
 
     private fun requestOneShotLocation() {
