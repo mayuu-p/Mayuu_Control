@@ -103,7 +103,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER; setPadding(0, dp(22), 0, 0)
         })
         showStatus(installId)
-        if (prefs.contains("device_id")) startRecoveryService()
+        if (prefs.contains("device_id") && !DeviceSecrets.read(this).isNullOrBlank()) startRecoveryService()
     }
 
     private fun card(title: String, content: View) {
@@ -156,7 +156,7 @@ class MainActivity : Activity() {
             try {
                 val info = JSONObject().put("manufacturer", Build.MANUFACTURER).put("model", Build.MODEL)
                     .put("androidVersion", Build.VERSION.RELEASE).put("appVersion", "0.3.0")
-                val response = post(JSONObject().put("action", "device_redeem").put("token", token)
+                val response = post(JSONObject() .put("action", "device_redeem").put("token", token.lowercase())
                     .put("installId", installId).put("consent", true).put("deviceInfo", info))
                 prefs.edit().putString("device_id", response.getString("deviceId"))
                     .putString("device_label", response.optString("label", "My Android")).apply()
@@ -165,16 +165,22 @@ class MainActivity : Activity() {
                     tokenInput.setText("")
                     toast("Device enrolled successfully.")
                     showStatus(installId)
+                    status.text = "ENROLLED • Server accepted this device. Starting visible protection…"
                     startRecoveryService()
                 }
-            } catch (e: Exception) { runOnUiThread { toast("Enrollment failed: ${e.message}") } }
+            } catch (e: Exception) { runOnUiThread { val message = e.message ?: e.javaClass.simpleName; status.text = "ENROLLMENT FAILED • $message"; toast("Enrollment failed: $message") } }
         }
     }
 
     private fun startRecoveryService() {
-        if (!prefs.contains("device_id")) { toast("Enroll this device first."); return }
-        ContextCompat.startForegroundService(this, Intent(this, RecoveryService::class.java))
-        status.text = "Protection starting. Keep the visible notification enabled."
+        if (!prefs.contains("device_id") || DeviceSecrets.read(this).isNullOrBlank()) { toast("Enroll this device first."); status.text = "NOT ENROLLED • Generate a one-time code in the owner dashboard and enroll this device."; return }
+        try {
+            ContextCompat.startForegroundService(this, Intent(this, RecoveryService::class.java))
+            status.text = "Protection requested. Waiting for first server heartbeat…"
+        } catch (e: Exception) {
+            status.text = "PROTECTION FAILED • ${e.message ?: e.javaClass.simpleName}"
+            toast("Could not start protection: ${e.message}")
+        }
     }
 
     private fun requestLocation() {
