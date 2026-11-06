@@ -86,12 +86,14 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 <p class="foot">PHANTOM RECOVER · Web MVP · Consent-first · No covert tracking · v1.0</p>
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module">
 const SUPABASE_URL = "https://ewvirpfovwruxshzzlaa.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
 const FUNCTION_URL = SUPABASE_URL + "/functions/v1/phantom-web";
+if(!window.supabase?.createClient){$("connection").textContent="Supabase SDK failed to load";throw new Error("Supabase SDK CDN did not load. Check internet/CDN access.");}
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+$("connection").innerHTML='<span class="dot"></span>SDK loaded · Checking connection';
 const $ = id => document.getElementById(id);
 let ownerData = [], locationsData = [], nativeDevicesData = [], nativeLocationsData = [], currentInvite = "", poller = null, redirectData = [];
 function toast(s){$("toast").textContent=s;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",3200)}
