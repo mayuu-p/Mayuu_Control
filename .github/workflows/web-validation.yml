@@ -1,0 +1,45 @@
+name: PHANTOM RECOVER Web Validation
+on:
+  push:
+    branches: [main]
+    paths: ["index.html", "enroll.html", "redirect.html", ".github/workflows/web-validation.yml"]
+  pull_request:
+    branches: [main]
+    paths: ["index.html", "enroll.html", "redirect.html", ".github/workflows/web-validation.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax-check inline JavaScript
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const files = ['index.html', 'enroll.html', 'redirect.html'];
+          let count = 0;
+          for (const file of files) {
+            const html = fs.readFileSync(file, 'utf8');
+            const scripts = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/gi)];
+            for (let i = 0; i < scripts.length; i++) {
+              const out = `/tmp/${file.replaceAll('/', '_')}-${i}.js`;
+              fs.writeFileSync(out, scripts[i][1]);
+              require('node:child_process').execFileSync(process.execPath, ['--check', out], {stdio: 'inherit'});
+              count++;
+            }
+          }
+          if (!count) throw new Error('No inline JavaScript blocks were validated.');
+          console.log(`Validated ${count} inline JavaScript block(s).`);
+          NODE
+      - name: Ensure no server secrets are present in public app files
+        run: |
+          if grep -R -n -E 'sb_secret_[A-Za-z0-9_-]+|service_role[[:space:]]*[:=][[:space:]]*["'\'' ]' index.html enroll.html redirect.html android; then
+            echo "Potential server secret found in public client files."
+            exit 1
+          fi
