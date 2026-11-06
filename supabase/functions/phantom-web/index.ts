@@ -41,7 +41,7 @@ const asText = (value: unknown, max = 120) => typeof value === "string" ? value.
 const validUuid = (v: unknown) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 const nowIso = () => new Date().toISOString();
 const observedIp = (req: Request) => {
-  const candidate = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "";
+  const candidate = req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || "";
   return candidate && candidate.length <= 64 && /^[0-9a-fA-F:.]+$/.test(candidate) ? candidate : null;
 };
 function assertConfigured() {
