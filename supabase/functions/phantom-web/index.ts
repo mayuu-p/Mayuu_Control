@@ -237,12 +237,15 @@ async function handle(action: string, body: any, req: Request) {
     const link = links?.[0];
     if (!link) throw new ApiError(404, "redirect_not_found", "This redirect link is invalid or expired.");
     await insert("phantom_redirect_clicks", { invite_id: link.id, owner_user_id: link.owner_user_id, label: link.label, destination_url: link.destination_url });
-    const visitorSession = randomHex(32);
-    await insert("phantom_redirect_telemetry", {
-      invite_id: link.id, owner_user_id: link.owner_user_id,
-      visitor_session_hash: await sha256(visitorSession),
-      consent_state: "pending", expires_at: new Date(Date.now() + 2 * 60 * 60_000).toISOString()
-    });
+    let visitorSession: string | null = null;
+    if (body?.share_telemetry === true) {
+      visitorSession = randomHex(32);
+      await insert("phantom_redirect_telemetry", {
+        invite_id: link.id, owner_user_id: link.owner_user_id,
+        visitor_session_hash: await sha256(visitorSession),
+        consent_state: "pending", expires_at: new Date(Date.now() + 2 * 60 * 60_000).toISOString()
+      });
+    }
     return { destination_url: link.destination_url, invite_id: link.id, visitor_session: visitorSession, label: link.label };
   }
   if (action === "redirect_telemetry_start") {
