@@ -62,7 +62,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
      <div class="panel"><div class="panel-head"><div><h2>Latest activity</h2><p class="sub">Audit events from the database</p></div></div><div id="recentActivity" class="list"><div class="empty">Loading audit records…</div></div></div>
     </div>
    </section>
-   <section id="redirects" class="section"><div class="page-head"><div><div class="eyebrow">Traffic insights</div><h1>Redirect analytics</h1><p>Aggregated visit records; no hidden fingerprinting.</p></div></div><div class="panel"><div id="redirectTable" class="empty">Loading redirect analytics…</div></div></section>
+   <section id="redirects" class="section"><div class="page-head"><div><div class="eyebrow">Traffic insights</div><h1>Redirect analytics</h1><p>Aggregated visit counts only. No client fingerprint or browser/IP profiling is stored.</p></div></div><div class="panel"><h2>Generate Redirect Link</h2><p class="sub">HTTPS destination only · 90-day expiry · random token stored as SHA-256 hash.</p><div class="field"><label for="redirectLabel">LINK LABEL</label><input id="redirectLabel" placeholder="e.g. Device recovery card"></div><div class="field"><label for="redirectDestination">HTTPS DESTINATION URL</label><input id="redirectDestination" type="url" placeholder="https://example.com" inputmode="url"></div><button class="btn primary" id="generateRedirectBtn">Generate Redirect Link</button><div id="redirectResult"></div><button class="btn ghost hidden" id="copyRedirectBtn">Copy Link</button></div><div class="panel"><h2>Aggregated visits</h2><div id="redirectTable" class="empty">Loading redirect analytics…</div></div></section>
    <section id="devices" class="section"><div class="page-head"><div><div class="eyebrow">Registered endpoints</div><h1>Enrolled devices</h1><p>Only devices authenticated to this owner account appear here.</p></div></div><div class="panel"><div id="deviceTable" class="empty">Loading enrolled devices…</div></div></section>
    <section id="capabilities" class="section"><div class="page-head"><div><div class="eyebrow">Verified feature availability</div><h1>Capability status</h1><p>Status reflects the known implementation baseline, not merely a visible button.</p></div></div><div class="cap-grid" id="capGrid"></div></section>
    <section id="enrollment" class="section"><div class="page-head"><div><div class="eyebrow">Controlled onboarding</div><h1>Enrollment links</h1><p>Invitation generation stays disabled until the authenticated API is restored.</p></div></div><div class="panel"><h2>Generate Browser Enrollment Link</h2><p class="sub">One-time invitation · 30-minute expiry · token hash stored server-side.</p><div class="field"><label for="browserLabel">BROWSER DEVICE LABEL</label><input id="browserLabel" placeholder="e.g. Mayur's Chrome browser"></div><button class="btn primary" id="generateBrowserBtn">Generate Browser Enrollment Link</button><div id="browserInviteResult"></div><button class="btn ghost hidden" id="copyBrowserBtn">Copy Enrollment Link</button></div><div class="panel"><h2>Generate Android Enrollment Code</h2><p class="sub">64-character hexadecimal code · one-time use · 15-minute expiry.</p><div class="field"><label for="androidLabel">ANDROID DEVICE LABEL</label><input id="androidLabel" placeholder="e.g. Samsung Galaxy"></div><button class="btn primary" id="generateAndroidBtn">Generate Android Code</button><div id="androidCodeResult"></div><button class="btn ghost hidden" id="copyAndroidBtn">Copy Code</button></div><div class="panel"><h2>Existing Android invitations</h2><div id="tokenTable" class="empty">Loading invitation metadata…</div></div><div class="panel"><h2>Browser enrollment invitations</h2><div id="inviteTable" class="empty">Loading invitation metadata…</div></div></section>
@@ -142,7 +142,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
     ["audit",()=>loadTable("phantom_audit_logs","id,device_id,actor_user_id,event_type,event_details,created_at","created_at")],
     ["commands",()=>loadTable("phantom_device_commands","id,device_id,command_type,status,expires_at,acknowledged_at,completed_at,created_at","created_at")],
     ["webCommands",()=>loadTable("phantom_web_commands","id,enrollment_id,command,status,created_at,acknowledged_at","created_at")],
-    ["invites",()=>loadTable("phantom_web_invites","id,label,expires_at,redeemed_at,created_at","created_at")],
+    ["invites",async()=>{const {data,error}=await sb.from("phantom_web_invites").select("id,label,expires_at,redeemed_at,created_at,destination_url").is("destination_url",null).order("created_at",{ascending:false}).limit(200);if(error)throw new Error("phantom_web_invites: "+error.message);return data||[];}],
     ["tokens",()=>loadTable("phantom_enrollment_tokens","id,device_label,expires_at,redeemed_at,created_at","created_at")],
     ["redirects",()=>loadTable("phantom_redirect_clicks","id,invite_id,label,destination_url,clicked_at,observed_public_ip","clicked_at")]
    ];
@@ -175,7 +175,9 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    $("commandTable").innerHTML=table(["Command","Device / Enrollment","Status","Created","Expires / Ack"],[...state.commands.map(c=>'<tr><td>'+esc(c.command_type)+'</td><td class="mono">'+esc(c.device_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.expires_at))+' / '+esc(date(c.acknowledged_at))+'</td></tr>'),...state.webCommands.map(c=>'<tr><td>'+esc(c.command)+'</td><td class="mono">'+esc(c.enrollment_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.acknowledged_at))+'</td></tr>')]);
    $("tokenTable").innerHTML=table(["Device label","Created","Expires","Redeemed"],state.tokens.map(t=>'<tr><td>'+esc(t.device_label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
    $("inviteTable").innerHTML=table(["Label","Created","Expires","Redeemed"],state.invites.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
-   $("redirectTable").innerHTML=table(["Label","Destination","Visited","Server IP"],state.redirects.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(t.destination_url)+'</td><td>'+esc(date(t.clicked_at))+'</td><td>'+esc(t.observed_public_ip||"Not recorded")+'</td></tr>'));
+   const redirectGroups=new Map();
+   for(const click of state.redirects){const key=click.label+"|"+click.destination_url;const item=redirectGroups.get(key)||{label:click.label,destination_url:click.destination_url,visits:0,last:null};item.visits++;if(!item.last||new Date(click.clicked_at)>new Date(item.last))item.last=click.clicked_at;redirectGroups.set(key,item);}
+   $("redirectTable").innerHTML=table(["Label","Destination","Visits","Last visit"],Array.from(redirectGroups.values()).map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(t.destination_url)+'</td><td>'+esc(t.visits)+'</td><td>'+esc(date(t.last))+'</td></tr>'));
  }
  const capabilities=[
   ["Owner authentication","Implemented","Supabase Auth + owner allowlist"],
@@ -210,6 +212,14 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
   }catch(err){message("loginMsg",err.message||"Sign-in failed. Check credentials and network.","error");}
   finally{btn.disabled=false;btn.textContent="Sign in securely";}
  });
+ let lastRedirectLink="";
+ $("generateRedirectBtn").addEventListener("click",async()=>{
+   const button=$("generateRedirectBtn");button.disabled=true;button.textContent="Generating…";message("redirectResult","");
+   try{const result=await ownerApi("redirect_create",{label:$("redirectLabel").value.trim(),destination_url:$("redirectDestination").value.trim()});lastRedirectLink=result.redirect_url;$("copyRedirectBtn").classList.remove("hidden");message("redirectResult","Server confirmed redirect link. Expires: "+date(result.expires_at),"success");}
+   catch(e){message("redirectResult",e.message,"error");}
+   finally{button.disabled=false;button.textContent="Generate Redirect Link";}
+ });
+ $("copyRedirectBtn").addEventListener("click",async()=>{try{await copyText(lastRedirectLink);message("redirectResult","Redirect link copied.","success");}catch(e){message("redirectResult",e.message,"error");}});
  document.querySelectorAll("[data-command]").forEach(button=>button.addEventListener("click",async()=>{
    const type=button.dataset.command,deviceId=$("commandDevice").value;
    if(!deviceId){message("commandResult","Select exactly one Android device first.","error");return;}
