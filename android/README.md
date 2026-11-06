@@ -1,5 +1,7 @@
 # PHANTOM RECOVER Android agent
 
+Premium dark-mode, consent-first Android companion. Current app version: 0.3.0.
+
 Android agent foundation integrated with the PHANTOM Edge Function.
 
 ## Implemented in 0.2.0
@@ -9,16 +11,19 @@ Android agent foundation integrated with the PHANTOM Edge Function.
 - 30-second heartbeat loop with battery and network telemetry.
 - Server command polling with retry of unacknowledged commands.
 - Visible ring alert, lost-device notification, and owner recovery-message notification.
-- One-shot last-known location upload after the user grants location permission and taps the location button.
+- One-shot fresh location request after the user taps the location button and grants Android location permission; uploads the returned coordinates and device-reported accuracy (no guaranteed 1–3 m precision).
+- Premium dark-mode native interface with explicit capability availability labels.
 - Owner dashboard device list, online/last-seen state, battery/network data, latest shared location link, command queue and revoke action.
 
 ## Not implemented / platform limits
 - FCM push delivery; command delivery currently uses authenticated polling while the foreground service is running.
 - Native Android MediaProjection screen-sharing session. The current command only posts a visible request notification; it does not start capture.
+- Native Android camera and microphone sessions. These are explicitly marked unavailable in the app; no capture is performed.
 - Native camera/microphone capture. These remain outside unattended recovery.
 - Remote device lock, SIM-change detection, guaranteed reboot persistence, or hidden background operation.
 - Hardware-backed asymmetric device keys and signed command envelopes. The current session secret is a bearer credential protected by app-private storage and server-side hashing; treat this as an MVP, not a production security certification.
-- Background continuous GPS. Location is a one-shot last-known fix after an explicit user action.
+- Background continuous GPS. Location is a one-shot fresh fix request after an explicit user action; accuracy depends on device, environment and available providers.
+- App-usage history, notification contents, call logs or call contents. These are not collected.
 
 Android may stop a foreground service due to force-stop, battery optimization, OEM process management, reboot, data-sync foreground-service time limits, or loss of connectivity. The app cannot guarantee 24/7 connectivity.
 
