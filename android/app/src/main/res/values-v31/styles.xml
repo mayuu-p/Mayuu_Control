@@ -1,8 +1,15 @@
 <resources>
-    <style name="Theme.Phantom" parent="Theme.Phantom">
+    <style name="Theme.Phantom" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#19D9F5</item>
+        <item name="android:statusBarColor">#070B13</item>
+        <item name="android:navigationBarColor">#070B13</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">#070B13</item>
         <item name="android:windowSplashScreenBackground">#070B13</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/phantom_logo</item>
         <item name="android:windowSplashScreenIconBackgroundColor">#071827</item>
-        <item name="android:postSplashScreenTheme">@style/Theme.Phantom</item>
     </style>
 </resources>
