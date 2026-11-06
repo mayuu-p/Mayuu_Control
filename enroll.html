@@ -53,7 +53,7 @@
    show("Enrollment confirmed by server. Your browser is connected only while this page remains open.","ok");startHeartbeat();
   }catch(e){show(e.message,"err");$("allowBtn").disabled=false;}
  });
- $("denyBtn").addEventListener("click",()=>{$("consentActions").classList.add("hidden");show("You denied enrollment. No session was created and no permissions were requested.","ok");});
+ $("denyBtn").addEventListener("click",async()=>{$("denyBtn").disabled=true;try{if(invite)await api("web_consent_deny",{invite});$("consentActions").classList.add("hidden");show("You denied enrollment. No session was created and no permissions were requested.","ok");}catch(e){show("Denial was applied locally, but audit confirmation failed: "+e.message,"err");}finally{$("denyBtn").disabled=false;}});
  $("locationStart").addEventListener("click",()=>{
   if(!secret||!navigator.geolocation){show("Location sharing is unavailable in this browser.","err");return;}
   $("locationStart").disabled=true;$("locationStop").disabled=false;
@@ -73,6 +73,10 @@
  }
  $("stopBtn").addEventListener("click",async()=>{ $("stopBtn").disabled=true;await stopServerSession();$("stopBtn").disabled=false;});
  $("exitBtn").addEventListener("click",async()=>{if(secret){const ok=await stopServerSession();if(!ok)return;}else endLocal();location.replace("https://mayuu-p.github.io/Mayuu_Control/");});
- if(!invite){show("Missing invitation token. Ask the owner to generate a fresh browser enrollment link.","err");$("allowBtn").disabled=true;}
+ if(secret&&enrollment){
+  $("consentActions").classList.add("hidden");$("sessionPanel").classList.remove("hidden");
+  heartbeatOnce().then(()=>{if(secret&&!stopped)startHeartbeat();});
+ }
+ if(!invite&&!secret){show("Missing invitation token. Ask the owner to generate a fresh browser enrollment link.","err");$("allowBtn").disabled=true;}
 })();
 </script></body></html>
