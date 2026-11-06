@@ -103,11 +103,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    if(userData.user?.email?.toLowerCase()!==OWNER_EMAIL){await sb.auth.signOut();throw new Error("Unauthorized owner account.");}
    return userData.user;
  }
- async function loadTable(name,columns,order="created_at",ascending=false){
-   const {data,error}=await sb.from(name).select(columns).order(order,{ascending}).limit(200);
-   if(error) throw new Error(name+": "+error.message);
-   return data||[];
- }
+
  let lastBrowserLink="",lastAndroidCode="",lastRedirectLink="",lastRedirectId="";
  async function ownerApi(action,payload={}){
    const {data,error}=await sb.auth.getSession();if(error)throw error;
@@ -135,26 +131,18 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
  $("copyAndroidBtn").addEventListener("click",async()=>{try{await copyText(lastAndroidCode);setResult("androidCodeResult","Android code copied. Share it securely; it can be used only once.","success");}catch(e){setResult("androidCodeResult",e.message,"error");}});
  async function loadAll(){
    $("syncState").innerHTML='<i class="dot"></i> Syncing…';
-   const jobs = [
-    ["devices",()=>loadTable("phantom_devices","id,device_label,manufacturer,model,android_version,app_version,status,battery_percent,network_type,observed_public_ip,last_seen_at,revoked_at,consented_at,last_location_at,created_at","last_seen_at")],
-    ["web",()=>loadTable("phantom_web_enrollments","id,label,browser_info,observed_public_ip,status,consented_at,last_seen_at,revoked_at,created_at","last_seen_at")],
-    ["telemetry",()=>loadTable("phantom_device_telemetry","id,device_id,battery_percent,charging,network_type,observed_public_ip,recorded_at","recorded_at")],
-    ["locations",()=>loadTable("phantom_device_locations","id,device_id,latitude,longitude,accuracy_m,captured_at","captured_at")],
-    ["webLocations",()=>loadTable("phantom_web_locations","id,enrollment_id,latitude,longitude,accuracy_m,captured_at","captured_at")],
-    ["audit",()=>loadTable("phantom_audit_logs","id,device_id,actor_user_id,event_type,event_details,created_at","created_at")],
-    ["commands",()=>loadTable("phantom_device_commands","id,device_id,command_type,status,expires_at,acknowledged_at,completed_at,created_at","created_at")],
-    ["webCommands",()=>loadTable("phantom_web_commands","id,enrollment_id,command,status,created_at,acknowledged_at","created_at")],
-    ["invites",async()=>{const {data,error}=await sb.from("phantom_web_invites").select("id,label,expires_at,redeemed_at,created_at,destination_url").is("destination_url",null).order("created_at",{ascending:false}).limit(200);if(error)throw new Error("phantom_web_invites: "+error.message);return data||[];}],
-    ["redirectLinks",async()=>{const {data,error}=await sb.from("phantom_web_invites").select("id,label,destination_url,expires_at,created_at").not("destination_url","is",null).order("created_at",{ascending:false}).limit(200);if(error)throw new Error("phantom_web_invites redirects: "+error.message);return data||[];}],
-    ["tokens",()=>loadTable("phantom_enrollment_tokens","id,device_label,expires_at,redeemed_at,created_at","created_at")],
-    ["redirects",()=>loadTable("phantom_redirect_clicks","id,invite_id,label,destination_url,clicked_at,observed_public_ip","clicked_at")]
-   ];
-   const settled=await Promise.all(jobs.map(async ([key,fn])=>{try{return [key,await fn(),null]}catch(e){return [key,[],e.message]}}));
-   const errors=[];
-   for(const [key,data,error] of settled){state[key]=data;if(error)errors.push(error);}
-   render();
-   $("syncState").innerHTML='<i class="dot"></i> '+(errors.length?"Partial data":"Synced · "+new Date().toLocaleTimeString());
-   if(errors.length) message("globalMsg","Some data could not be loaded: "+errors.join(" | "),"error"); else message("globalMsg","");
+   try{
+     const data=await ownerApi("dashboard_data");
+     for(const key of Object.keys(state)) state[key]=Array.isArray(data[key])?data[key]:[];
+     render();
+     $("syncState").innerHTML='<i class="dot"></i> Synced · '+new Date().toLocaleTimeString();
+     message("globalMsg","");
+   }catch(error){
+     for(const key of Object.keys(state)) state[key]=[];
+     render();
+     $("syncState").innerHTML='<i class="dot"></i> Sync failed';
+     message("globalMsg",error.message||"Dashboard data could not be loaded.","error");
+   }
  }
  function combined(){
    return [
