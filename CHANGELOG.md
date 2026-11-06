@@ -32,3 +32,5 @@
 - Dashboard now displays newly generated browser enrollment links, Android codes and redirect URLs once, with copy controls and expiry details; raw tokens remain hashed server-side.
 
 - Added an Android 12+ shield-branded system splash screen and reused the PHANTOM vector logo in the native app header.
+
+- Deployed `phantom-web` version 24; public IP telemetry now accepts only trusted `cf-connecting-ip` or `x-real-ip` server headers and never falls back to client-supplied `x-forwarded-for`.
