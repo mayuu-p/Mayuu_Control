@@ -167,6 +167,7 @@ async function handle(action: string, body: any, req: Request) {
     const device = rows?.[0];
     if (!device) throw new ApiError(500, "enrollment_failed", "Device enrollment could not be completed.");
     await audit("device_enrolled", token.owner_user_id, device.id, { install_id });
+    await audit("consent_accepted", token.owner_user_id, device.id, { platform: "android" });
     return { device_id: device.id, session_secret, enrolled_at: device.consented_at };
   }
   if (action === "device_heartbeat") {
@@ -233,6 +234,15 @@ async function handle(action: string, body: any, req: Request) {
     await audit("device_revoked", user.id, device_id, {});
     return { ok: true, revoked_at: nowIso() };
   }
+  if (action === "web_consent_deny") {
+    const tokenRaw = asText(body?.invite, 64).toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(tokenRaw)) throw new ApiError(400, "invalid_invite", "Invalid browser invitation.");
+    const invites = await select("phantom_web_invites", { select: "id,owner_user_id,label,expires_at,redeemed_at", token_hash: "eq." + await sha256(tokenRaw), limit: "1" });
+    const invite = invites?.[0];
+    if (!invite) throw new ApiError(404, "invalid_invite", "Invalid browser invitation.");
+    await audit("consent_denied", null, null, { platform: "browser", invite_id: invite.id, label: invite.label });
+    return { ok: true, denied: true };
+  }
   if (action === "web_redeem") {
     requiredConsent(body);
     const tokenRaw = asText(body?.invite, 64).toLowerCase();
@@ -255,6 +265,7 @@ async function handle(action: string, body: any, req: Request) {
     const enrollment = rows?.[0];
     if (!enrollment) throw new ApiError(500, "enrollment_failed", "Browser enrollment could not be completed.");
     await audit("browser_device_enrolled", invite.owner_user_id, null, { enrollment_id: enrollment.id, label: enrollment.label });
+    await audit("consent_accepted", null, null, { platform: "browser", enrollment_id: enrollment.id });
     return { enrollment_id: enrollment.id, session_secret, owner_display: OWNER_EMAIL, consented_at: enrollment.consented_at };
   }
   if (action === "web_heartbeat") {
