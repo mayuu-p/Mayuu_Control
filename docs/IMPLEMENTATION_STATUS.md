@@ -9,7 +9,7 @@ Last checked: 2026-11-06
 - Owner Auth account: exists and email is confirmed.
 - Existing PHANTOM tables: present, zero rows at audit time.
 - Existing migration history: present.
-- Existing `phantom-web` function: restored and deployed as version 24; runtime invocation still needs end-to-end verification.
+- Existing `phantom-web` function: restored and deployed as version 25; runtime invocation still needs end-to-end verification.
 - No secret values are printed or committed.
 
 ## Phase 1 progress
@@ -17,8 +17,8 @@ Last checked: 2026-11-06
 - [x] Supabase Auth sign-in and owner email allowlist.
 - [x] Read real PHANTOM data under RLS.
 - [x] Derive online status from server timestamps.
-- [x] Add owner-scoped read policies and revoke anonymous access to PHANTOM tables.
-- [x] Revoke authenticated client write privileges; PHANTOM writes are server-mediated.
+- [x] Retain owner-scoped RLS policies on all PHANTOM tables as defense in depth; browser roles have no direct table grants.
+- [x] Revoke all direct table privileges from anon, authenticated and PUBLIC; dashboard reads and all writes are server-mediated by the owner/device-authenticated Edge Function.
 - [x] Add expiring redirect links with privacy-minimal aggregate visit records; raw URL is returned once and visit counts are aggregated by redirect ID.
 - [x] Add explicit browser consent, tab-only heartbeat, opt-in location sharing and Stop Session.
 - [x] Add owner recovery controls for one selected online Android device and browser-device revocation.
