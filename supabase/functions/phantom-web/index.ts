@@ -137,9 +137,11 @@ async function handle(action: string, body: any, req: Request) {
     try { parsed = new URL(destination); } catch { throw new ApiError(400, "invalid_destination", "Enter a valid HTTPS destination URL."); }
     if (parsed.protocol !== "https:" || parsed.username || parsed.password) throw new ApiError(400, "invalid_destination", "Only public HTTPS destination URLs are allowed.");
     const token = randomHex(32), expires_at = new Date(Date.now() + 90 * 24 * 60 * 60_000).toISOString();
-    await insert("phantom_web_invites", { owner_user_id: user.id, label, token_hash: await sha256(token), expires_at, destination_url: parsed.toString() });
+    const rows = await insert("phantom_web_invites", { owner_user_id: user.id, label, token_hash: await sha256(token), expires_at, destination_url: parsed.toString() });
+    const link = rows?.[0];
+    if (!link) throw new ApiError(500, "redirect_create_failed", "Redirect link could not be created.");
     await audit("redirect_link_created", user.id, null, { label, expires_at });
-    return { redirect_url: DASHBOARD_ORIGIN.replace(/\/$/, "") + "/Mayuu_Control/redirect.html?token=" + token, expires_at };
+    return { id: link.id, redirect_url: DASHBOARD_ORIGIN.replace(/\/$/, "") + "/Mayuu_Control/redirect.html?token=" + token, expires_at };
   }
   if (action === "redirect_resolve") {
     const tokenRaw = asText(body?.token, 64).toLowerCase();
