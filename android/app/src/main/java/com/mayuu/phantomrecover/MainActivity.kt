@@ -181,7 +181,17 @@ class MainActivity : Activity() {
                     refreshState()
                 }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "Could not confirm session termination: ${e.message}" }
+                val detail = e.message ?: "Network error"
+                if (Regex("expired|revoked|session is invalid", RegexOption.IGNORE_CASE).containsMatchIn(detail)) {
+                    DeviceSecrets.clearSession(this)
+                    runOnUiThread {
+                        stopService(Intent(this, RecoveryService::class.java))
+                        status.text = "Server reports this session is no longer valid. Local session credentials cleared."
+                        refreshState()
+                    }
+                } else {
+                    runOnUiThread { status.text = "Could not confirm session termination: ${detail}" }
+                }
             }
         }
     }
