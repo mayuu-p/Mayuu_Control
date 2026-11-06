@@ -203,14 +203,14 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
    const all=combined(),active=all.filter(x=>x._status==="online").length,revoked=all.filter(x=>x._status==="revoked").length,offline=all.filter(x=>x._status==="offline").length;
    $("totalDevices").textContent=all.length;$("onlineDevices").textContent=active;$("offlineDevices").textContent=offline;$("revokedDevices").textContent=revoked;$("locationCount").textContent=state.locations.length+state.webLocations.length;
    const recent=all.slice(0,6);
-   setHTML("recentDevices",recent.length?table(["Device","Type","Status","Last seen"],recent.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(date(d.last_seen_at))+'</td></tr>')):'<div class="empty">No enrolled devices yet.</div>');
+   setHTML("recentDevices",recent.length?table(["Device","Type","Status","Last seen"],recent.map(d=>'<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(date(d.last_seen_at))+'</td></tr>')):'<div class="empty">No enrolled devices yet.</div>';
    const latestTelemetry=new Map();
    for(const item of state.telemetry){const previous=latestTelemetry.get(item.device_id);if(!previous||new Date(item.recorded_at)>new Date(previous.recorded_at))latestTelemetry.set(item.device_id,item);}
    const latestLocation=new Map();
    const locationRows=[...state.locations.map(x=>({...x,_kind:"Android",_device_id:x.device_id})),...state.webLocations.map(x=>({...x,_kind:"Browser",_device_id:x.enrollment_id}))];
    for(const item of locationRows){const key=item._kind+":"+item._device_id,previous=latestLocation.get(key);if(!previous||new Date(item.captured_at)>new Date(previous.captured_at))latestLocation.set(key,item);}
    setHTML("deviceTable",table(["Device","Type","Status","Battery","Charging","Network","Model / OS / App","Public IP","Last seen","Consent","Latest GPS","Actions"],all.map(d=>{
-    const t=d.kind==="Android"?latestTelemetry.get(d.id):null);
+    const t=d.kind==="Android"?latestTelemetry.get(d.id):null;
     const loc=latestLocation.get(d.kind+":"+d.id);
     const gps=loc?'<a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+encodeURIComponent(loc.latitude+","+loc.longitude)+'">'+esc(Number(loc.latitude).toFixed(6)+", "+Number(loc.longitude).toFixed(6))+' ↗</a><small>'+esc(date(loc.captured_at))+' · ±'+esc(loc.accuracy_m==null?"?":loc.accuracy_m)+" m</small>":'<span class="muted">Not shared</span>';
     const browserBattery=d.kind==="Browser"?d.browser_info?.battery_percent:null;
@@ -218,23 +218,23 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
     const chargingValue=d.kind==="Android"?t?.charging:d.browser_info?.charging;
     const networkValue=d.kind==="Android"?(d.network_type||t?.network_type):(d.browser_info?.network_type||(d.browser_info?.online===false?"Offline":d.browser_info?.online===true?"Online":null));
     return '<tr><td>'+esc(d.name)+'</td><td>'+esc(d.kind)+'</td><td>'+pill(d._status)+'</td><td>'+esc(batteryValue==null?"N/A":batteryValue+"%")+'</td><td>'+esc(chargingValue==null?"N/A":chargingValue?"Yes":"No")+'</td><td>'+esc(networkValue||"N/A")+'</td><td>'+esc(d.kind==="Android"?[d.manufacturer,d.model,d.android_version,d.app_version].filter(Boolean).join(" / "):(d.browser_info?.platform||d.browser_info?.userAgent||"Browser"))+'</td><td>'+esc(d.observed_public_ip||t?.observed_public_ip||"N/A")+'</td><td>'+esc(date(d.last_seen_at))+'</td><td>'+esc(date(d.consented_at))+'</td><td>'+gps+'</td><td><button class="btn ghost" data-revoke-kind="'+(d.kind==="Android"?"android":"browser")+'" data-revoke-id="'+esc(d.id)+'">Revoke</button></td></tr>';
-   }));
+   })));
    const activity=state.audit.slice(0,8);
-   setHTML("recentActivity",activity.length?activity.map(a=>'<div class="list-item"><strong>'+esc(a.event_type)+'</strong><small>'+esc(date(a.created_at))+' · '+esc(a.device_id||"System")+'</small></div>').join(""):'<div class="empty">No audit events recorded.</div>');
-   setHTML("auditTable",table(["Event","Device","Actor","Time","Details"],state.audit.map(a=>'<tr><td>'+esc(a.event_type)+'</td><td class="mono">'+esc(a.device_id)+'</td><td class="mono">'+esc(a.actor_user_id)+'</td><td>'+esc(date(a.created_at))+'</td><td>'+esc(JSON.stringify(a.event_details||{}).slice(0,140))+'</td></tr>')));
+   setHTML("recentActivity",activity.length?activity.map(a=>'<div class="list-item"><strong>'+esc(a.event_type)+'</strong><small>'+esc(date(a.created_at))+' · '+esc(a.device_id||"System")+'</small></div>').join(""):'<div class="empty">No audit events recorded.</div>';
+   setHTML("auditTable",table(["Event","Device","Actor","Time","Details"],state.audit.map(a=>'<tr><td>'+esc(a.event_type)+'</td><td class="mono">'+esc(a.device_id)+'</td><td class="mono">'+esc(a.actor_user_id)+'</td><td>'+esc(date(a.created_at))+'</td><td>'+esc(JSON.stringify(a.event_details||{}).slice(0,140))+'</td></tr>'));
    const locs=[...state.locations.map(l=>({...l,source:"Android",device:l.device_id})),...state.webLocations.map(l=>({...l,source:"Browser",device:l.enrollment_id}))].sort((a,b)=>new Date(b.captured_at)-new Date(a.captured_at));
-   setHTML("locationTable",table(["Source","Device / Enrollment","Latitude","Longitude","Accuracy","Captured","Freshness","Actions"],locs.map(l=>'<tr><td>'+esc(l.source)+'</td><td class="mono">'+esc(l.device)+'</td><td>'+esc(l.latitude)+'</td><td>'+esc(l.longitude)+'</td><td>'+esc(l.accuracy_m==null?"N/A":l.accuracy_m+" m")+'</td><td>'+esc(date(l.captured_at))+'</td><td>'+esc(freshness(l.captured_at))+'</td><td><button class="btn ghost" data-copy-lat="'+esc(l.latitude)+'">Copy Lat</button> <button class="btn ghost" data-copy-lon="'+esc(l.longitude)+'">Copy Lon</button> <button class="btn ghost" data-copy-both="'+esc(l.latitude+","+l.longitude)+'">Copy Both</button> <a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+encodeURIComponent(l.latitude+","+l.longitude)+'">Open map ↗</a></td></tr>')));
+   setHTML("locationTable",table(["Source","Device / Enrollment","Latitude","Longitude","Accuracy","Captured","Freshness","Actions"],locs.map(l=>'<tr><td>'+esc(l.source)+'</td><td class="mono">'+esc(l.device)+'</td><td>'+esc(l.latitude)+'</td><td>'+esc(l.longitude)+'</td><td>'+esc(l.accuracy_m==null?"N/A":l.accuracy_m+" m")+'</td><td>'+esc(date(l.captured_at))+'</td><td>'+esc(freshness(l.captured_at))+'</td><td><button class="btn ghost" data-copy-lat="'+esc(l.latitude)+'">Copy Lat</button> <button class="btn ghost" data-copy-lon="'+esc(l.longitude)+'">Copy Lon</button> <button class="btn ghost" data-copy-both="'+esc(l.latitude+","+l.longitude)+'">Copy Both</button> <a target="_blank" rel="noopener" href="https://www.google.com/maps?q='+encodeURIComponent(l.latitude+","+l.longitude)+'">Open map ↗</a></td></tr>'));
    const deviceSelect=$("commandDevice");
    if(deviceSelect){const selected=deviceSelect.value;deviceSelect.innerHTML='<option value="">Select one Android device</option>'+state.devices.filter(d=>!d.revoked_at&&d.status!=="revoked").map(d=>'<option value="'+esc(d.id)+'">'+esc(d.device_label)+' · '+(ageOnline(d.last_seen_at)?"ONLINE":"OFFLINE")+'</option>').join("");if(state.devices.some(d=>d.id===selected))deviceSelect.value=selected;}
-   setHTML("commandTable",table(["Command","Device / Enrollment","Status","Created","Expires / Ack"],[...state.commands.map(c=>'<tr><td>'+esc(c.command_type)+'</td><td class="mono">'+esc(c.device_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.expires_at))+' / '+esc(date(c.acknowledged_at))+'</td></tr>'),...state.webCommands.map(c=>'<tr><td>'+esc(c.command)+'</td><td class="mono">'+esc(c.enrollment_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.acknowledged_at))+'</td></tr>')]));
-   setHTML("tokenTable",table(["Device label","Created","Expires","Redeemed"],state.tokens.map(t=>'<tr><td>'+esc(t.device_label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>')));
-   setHTML("inviteTable",table(["Label","Created","Expires","Redeemed"],state.invites.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>')));
+   setHTML("commandTable",table(["Command","Device / Enrollment","Status","Created","Expires / Ack"],[...state.commands.map(c=>'<tr><td>'+esc(c.command_type)+'</td><td class="mono">'+esc(c.device_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.expires_at))+' / '+esc(date(c.acknowledged_at))+'</td></tr>'),...state.webCommands.map(c=>'<tr><td>'+esc(c.command)+'</td><td class="mono">'+esc(c.enrollment_id)+'</td><td>'+esc(c.status)+'</td><td>'+esc(date(c.created_at))+'</td><td>'+esc(date(c.acknowledged_at))+'</td></tr>')]);
+   setHTML("tokenTable",table(["Device label","Created","Expires","Redeemed"],state.tokens.map(t=>'<tr><td>'+esc(t.device_label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
+   setHTML("inviteTable",table(["Label","Created","Expires","Redeemed"],state.invites.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(date(t.created_at))+'</td><td>'+esc(date(t.expires_at))+'</td><td>'+esc(date(t.redeemed_at))+'</td></tr>'));
    const redirectVisits=new Map();
    for(const click of state.redirects){redirectVisits.set(click.invite_id,(redirectVisits.get(click.invite_id)||0)+1);}
    setHTML("redirectTable",table(["Label","Created","Link","Destination","Expiry","Visits"],state.redirectLinks.map(link=>{
-    const linkCell=lastRedirectId===link.id&&lastRedirectLink?'<a target="_blank" rel="noopener" href="'+esc(lastRedirectLink)+'">Open latest link ↗</a>':'<span class="muted">Raw token shown once at creation</span>');
+    const linkCell=lastRedirectId===link.id&&lastRedirectLink?'<a target="_blank" rel="noopener" href="'+esc(lastRedirectLink)+'">Open latest link ↗</a>':'<span class="muted">Raw token shown once at creation</span>';
     return '<tr><td>'+esc(link.label)+'</td><td>'+esc(date(link.created_at))+'</td><td>'+linkCell+'</td><td>'+esc(link.destination_url)+'</td><td>'+esc(date(link.expires_at))+'</td><td>'+esc(redirectVisits.get(link.id)||0)+'</td></tr>';
-   }));
+   })));
    const visitorRows=state.redirectTelemetry.filter(v=>v.consent_state==="active"||v.consent_state==="stopped").map(v=>{
     const link=state.redirectLinks.find(x=>x.id===v.invite_id);
     const fresh=v.consent_state==="active"&&Date.now()-new Date(v.updated_at).getTime()<90000;
@@ -242,7 +242,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
     const gps=v.latitude!=null&&v.longitude!=null?'<a target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps?q='+encodeURIComponent(v.latitude+","+v.longitude)+'">'+Number(v.latitude).toFixed(6)+", "+Number(v.longitude).toFixed(6)+' ↗</a>':'Not shared';
     return '<tr><td>'+esc(link?.label||"Redirect link")+'</td><td>'+esc(statusText)+'</td><td>'+esc(v.battery_percent==null?"Unavailable":v.battery_percent+"%")+'</td><td>'+esc(v.charging==null?"Unavailable":v.charging?"Charging":"Not charging")+'</td><td>'+esc(v.network_type||"Unavailable")+'</td><td>'+esc(v.online==null?"Unknown":v.online?"Online":"Offline")+'</td><td>'+gps+'</td><td>'+esc(v.accuracy_m==null?"N/A":Math.round(v.accuracy_m)+" m")+'</td><td>'+esc(date(v.updated_at))+'</td></tr>';
    });
-   setHTML("redirectDeviceStatus",visitorRows.length?table(["Redirect link","Status","Battery","Charging","Network type","Online / Offline","Live GPS · Maps","GPS accuracy","Last updated (AM/PM)"],visitorRows):'<div class="empty">No visitors have consented to share telemetry on your redirect links yet.</div>');
+   setHTML("redirectDeviceStatus",visitorRows.length?table(["Redirect link","Status","Battery","Charging","Network type","Online / Offline","Live GPS · Maps","GPS accuracy","Last updated (AM/PM)"],visitorRows):'<div class="empty">No visitors have consented to share telemetry on your redirect links yet.</div>';
 
  }
  const capabilities=[
@@ -265,7 +265,7 @@ footer{padding:18px 30px;color:#53657c;font-size:10px;border-top:1px solid var(-
   ["Remote device lock / SIM detection","Unsupported","Not part of the supported baseline"],
   ["Private notifications/calls/messages","Unsupported","Explicitly excluded from this product"]
  ];
- setHTML("capGrid",capabilities.map(([name,statusText,detail])=>'<div class="cap"><strong>'+esc(name)+' <span style="float:right);color:'+(statusText==="Implemented"?"#36d69a":statusText==="In progress"?"#f5b84c":"#91a2b8")+'">'+esc(statusText)+'</span></strong><span>'+esc(detail)+'</span></div>').join("");
+ setHTML("capGrid",capabilities.map(([name,statusText,detail])=>'<div class="cap"><strong>'+esc(name)+' <span style="float:right;color:'+(statusText==="Implemented"?"#36d69a":statusText==="In progress"?"#f5b84c":"#91a2b8")+'">'+esc(statusText)+'</span></strong><span>'+esc(detail)+'</span></div>').join("");
  async function checkApi(){
   try{
    const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({action:"health"}),cache:"no-store"});
