@@ -7,4 +7,9 @@
 - Derived online/offline state from the server heartbeat timestamp with a 90-second timeout.
 - Added explicit capability states and disabled claims for unverified or unavailable features.
 - Added additive RLS hardening migration for owner-scoped PHANTOM reads and revoked anonymous table access.
-- Confirmed the existing PHANTOM Edge Function currently returns HTTP 410; API actions remain disabled pending restoration.
+- Restored and deployed `phantom-web` Edge Function (version 16) with owner allowlist, one-time Android/browser enrollment, hashed sessions, heartbeat, location upload, command polling/acknowledgment, revocation, consent auditing and bounded request bodies.
+- Added five-minute browser command expiry and 90-second dashboard online/offline calculation.
+- Added explicit-consent browser enrollment page with tab-only heartbeat and opt-in location sharing.
+- Added Android 0.3.0 foundation with Keystore AES-GCM, visible foreground service, 30-second heartbeat, telemetry, one-shot GPS and Stop Protection.
+- Added GitHub Actions Android build; debug APK artifact produced successfully (artifact ID 13500803342).
+- Hardened PHANTOM table privileges: anonymous access revoked; authenticated clients receive SELECT only; writes are server-mediated.
