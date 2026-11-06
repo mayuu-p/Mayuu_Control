@@ -92,6 +92,9 @@ document.getElementById("connection").textContent = "Starting secure connectionâ
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="document.getElementById('connection').textContent='Supabase SDK CDN blocked';document.getElementById('authMessage').textContent='Could not load Supabase SDK. Check internet or content blocker and reload.'"></script>
 <script>
 (async function startPhantomApp(){
+/* Same predictable DOM-helper pattern used by the QR owner page.
+   Keep PHANTOM's own Supabase project and owner authorization separate. */
+const $ = id => document.getElementById(id);
 const connection = $("connection");
 if (!window.supabase || typeof window.supabase.createClient !== "function") {
   connection.textContent = "Supabase SDK unavailable";
