@@ -51,11 +51,11 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 <header class="top"><div class="brand">◈ PHANTOM RECOVER<small>CONSENT-BASED DEVICE CONTROL CENTRE</small></div><div class="row"><span class="pill" id="connection"><span class="dot"></span>Connecting</span><button class="btn ghost hidden" id="logout">Sign out</button></div></header>
 
 <section id="authView" class="auth card">
-<h2>Owner sign in</h2><p class="muted">Sign in to manage your enrolled browser sessions. New owners can create an account.</p>
-<div class="field"><label>Email</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com"></div>
+<h2>Owner sign in</h2><p class="muted">Sign in with the authorized owner account.</p>
+<div class="field"><label>Email</label><input id="email" type="email" autocomplete="email" placeholder="mayur99@gmail.com"></div>
 <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="At least 8 characters"></div>
-<div class="row"><button class="btn primary" id="signin">Sign in</button><button class="btn" id="signup">Create account</button></div>
-<p class="muted" id="authMessage">Use your own email. If email confirmation is enabled, verify the email before signing in.</p>
+<div class="row"><button class="btn primary" id="signin">Sign in</button></div>
+<p class="muted" id="authMessage">Authorized owner account only.</p>
 </section>
 
 <section id="ownerView" class="hidden">
@@ -189,40 +189,24 @@ async function ownerMode(){
  try{await refresh();}catch(e){toast(e.message)}
  if(poller)clearInterval(poller);poller=setInterval(()=>refresh().catch(()=>{}),12000);
 }
-async function runAuth(mode){
+async function runAuth(){
  const email=$("email").value.trim().toLowerCase(),password=$("password").value;
- const message=$("authMessage"),signIn=$("signin"),signUp=$("signup");
+ const message=$("authMessage"),signIn=$("signin");
  message.textContent="";
- if(!email||!password){message.textContent="Email aur password dono enter karo.";return}
- if(password.length<6){message.textContent="Password kam se kam 6 characters ka hona chahiye.";return}
- signIn.disabled=true;signUp.disabled=true;
- const active=mode==="signin"?signIn:signUp,original=active.textContent;
- active.textContent=mode==="signin"?"Signing in…":"Creating account…";
+ if(email!=="mayur99@gmail.com"){message.textContent="This email is not authorized for the owner dashboard.";return}
+ if(!password){message.textContent="Password enter karo.";return}
+ signIn.disabled=true;signIn.textContent="Signing in…";
  try{
-  if(mode==="signin"){
-   const {data,error}=await sb.auth.signInWithPassword({email,password});
-   if(error)throw error;
-   if(!data.session)throw new Error("Login session nahi bana. Dobara try karo.");
-   message.textContent="Login successful. Dashboard loading…";
-   await ownerMode();
-  }else{
-   const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
-   if(error)throw error;
-   message.textContent=data.session?"Account created. Dashboard opening…":"Account request successful. Email inbox/spam mein verification link check karo, verify karne ke baad Sign in karo.";
-   if(data.session)await ownerMode();
-  }
- }catch(e){
-  const msg=String(e?.message||e);
-  message.textContent=msg;
-  console.error("PHANTOM auth error:",e);
- }finally{
-  signIn.disabled=false;signUp.disabled=false;
-  signIn.textContent="Sign in";signUp.textContent="Create account";
- }
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error)throw error;
+  if(!data.session)throw new Error("Login session nahi bana. Dobara try karo.");
+  message.textContent="Login successful. Dashboard loading…";
+  await ownerMode();
+ }catch(e){message.textContent=e.message||"Login failed.";console.error("PHANTOM auth error:",e)}
+ finally{signIn.disabled=false;signIn.textContent="Sign in"}
 }
-$("signin").type="button";$("signup").type="button";
-$("signin").onclick=()=>runAuth("signin");
-$("signup").onclick=()=>runAuth("signup");
+$("signin").type="button";
+$("signin").onclick=runAuth;
 $("logout").onclick=async()=>{if(poller)clearInterval(poller);await sb.auth.signOut();$("logout").classList.add("hidden");show("authView")};
 document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===b.dataset.tab));});
 $("createRedirect").onclick=async()=>{try{const label=$("redirectLabel").value.trim(),url=$("redirectUrl").value.trim();if(!label)throw new Error("Enter a label.");const parsed=new URL(url);if(!["http:","https:"].includes(parsed.protocol))throw new Error("Only http/https URLs are allowed.");const r=await api("create_redirect_link",{label,destinationUrl:parsed.href});currentRedirect=location.origin+location.pathname+"?go="+r.token;$("redirectLinkText").textContent=currentRedirect;$("redirectExpiry").textContent="Expires "+fmt(r.expiresAt);$("redirectBox").classList.remove("hidden");toast("Tracked redirect link created")}catch(e){toast(e.message)}};let currentRedirect="";$("copyRedirect").onclick=async()=>{await navigator.clipboard.writeText(currentRedirect);toast("Redirect link copied")};
