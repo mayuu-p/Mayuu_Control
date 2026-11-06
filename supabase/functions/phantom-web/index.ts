@@ -129,7 +129,7 @@ function validateLocation(body: any) {
   return { latitude, longitude, accuracy_m: accuracy, captured_at: captured.toISOString() };
 }
 async function handle(action: string, body: any, req: Request) {
-  if (action === "health") return { status: "ready", api_version: "0.3.0", configured: Boolean(SUPABASE_URL && ANON_KEY && SERVICE_KEY && DASHBOARD_ORIGIN) };
+  if (action === "health") { await select("phantom_devices", { select: "id", limit: "0" }); return { status: "ready", api_version: "0.3.0", configured: true, database: "reachable" }; }
   if (action === "redirect_create") {
     const user = await owner(req), label = asText(body?.label, 80), destination = asText(body?.destination_url, 2048);
     if (!label) throw new ApiError(400, "invalid_label", "Enter a redirect label.");
