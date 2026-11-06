@@ -46,7 +46,7 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 @media(max-width:800px){.wrap{padding:13px}.top{padding:13px;border-radius:15px}.card{padding:15px}.mediaPanel{padding:13px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 
-</style></head><body>
+.enrollCompact{max-width:560px;margin:7vh auto;padding:22px}.enrollCompact h2{margin:0 0 4px}.enrollDisclosure{margin:12px 0;padding:10px 12px}.enrollControls{margin-top:14px;padding:14px;border:1px solid rgba(101,208,238,.27);border-radius:13px;background:rgba(8,23,36,.72)}.enrollControls h3{margin:0 0 5px;font-size:14px}.enrollControls .row{gap:8px}.enrollControls .btn{padding:9px 11px}@media(max-width:600px){.enrollCompact{margin:18px auto;padding:16px}.enrollControls .btn{flex:1 1 42%}}</style></head><body>
 <div class="wrap">
 <header class="top"><div class="brand">◈ PHANTOM RECOVER<small>CONSENT-BASED DEVICE CONTROL CENTRE</small></div><div class="row"><span class="pill" id="connection"><span class="dot"></span>Connecting</span><button class="btn ghost hidden" id="logout">Sign out</button></div></header>
 
@@ -76,12 +76,18 @@ tbody tr:hover td{background:rgba(74,174,207,.055)}
 <div class="page" id="locations"><div class="card"><h2>Live location map</h2><p class="sub">Live map of the most recent GPS point shared with permission. The enrolled browser must stay open and GPS sharing must remain enabled.</p><div id="liveMap" class="map">No location shared yet.</div><h2 style="margin-top:18px">Consent-based location history</h2><p class="sub">Only coordinates shared after a user action and browser permission are shown.</p><div class="tablewrap"><table><thead><tr><th>ENROLLED DEVICE</th><th>LATITUDE</th><th>LONGITUDE</th><th>ACCURACY</th><th>CAPTURED</th></tr></thead><tbody id="locationRows"><tr><td colspan="5">Loading…</td></tr></tbody></table></div></div></div>
 </section>
 
-<section id="enrollView" class="hidden auth card">
-<h2>Device browser enrollment</h2><p class="muted">This is a voluntary enrollment invitation for PHANTOM RECOVER. Nothing is collected until you accept below.</p>
-<div class="notice">If you continue, the service will receive basic browser/device details (browser/platform, language, timezone, screen size), your public IP as observed by the server, and a timestamp. These details can be used to identify this browser session. No IMEI, SIM data, contacts, messages, camera, microphone, or files are accessed.</div>
-<div class="notice">By tapping <b>Continue & enroll</b>, you confirm that you have read the disclosure above and agree to this browser session enrollment. GPS, camera, microphone, and screen sharing remain OFF until you separately choose to share them and approve the browser/OS prompt.</div>
-<button class="btn primary" id="acceptEnroll">Continue & enroll</button><p class="muted" id="enrollMessage">No data is enrolled until you tap Continue & enroll. You can close this page at any time.</p>
-<div id="mediaConsentModal" class="hidden" style="position:fixed;inset:0;z-index:10000;background:#030811dd;display:grid;place-items:center;padding:20px"><div class="card" style="width:min(440px,100%);box-shadow:0 20px 70px #0009"><h2>Live sharing request</h2><p id="mediaConsentText" class="muted">The owner requested a media source. Nothing is shared until you approve.</p><div class="row"><button class="btn primary" id="approveMediaRequest">Allow</button><button class="btn ghost" id="denyMediaRequest">Deny</button></div></div></div><div id="mediaShareArea" class="hidden notice"><b>Live sharing</b><p class="muted">Choose what you agree to share. Your browser will show its own permission prompts. Screen capture is available only on browsers that support it.</p><div class="row"><button class="btn primary" id="shareCameraMic">Camera + mic</button><button class="btn" id="shareFrontCamera">Front camera</button><button class="btn" id="shareBackCamera">Back camera</button><button class="btn" id="shareMic">Microphone only</button><button class="btn" id="shareScreen">Screen mirror</button><button class="btn danger" id="stopMedia">Stop sharing</button></div><p id="mediaShareStatus" class="muted">Waiting for your choice.</p></div><div id="gpsArea" class="hidden"><hr style="border-color:#26384b;margin:20px 0"><h2>Optional location sharing</h2><p class="muted">Location is off by default. Tap below and approve the browser's location prompt if you want to share a GPS point. If you selected the GPS checkbox during enrollment, this button is still required to trigger the browser permission prompt.</p><button class="btn" id="shareLocation">Share my current location</button><button class="btn ghost" id="stopSharing">End this browser session</button></div>
+<section id="enrollView" class="hidden auth card enrollCompact">
+<h2>Connect this device</h2>
+<p class="muted">PHANTOM RECOVER · Device enrollment</p>
+<div class="notice enrollDisclosure">By continuing, this browser shares basic device/browser details and server-observed public IP with the owner. GPS, camera, microphone and screen remain off until you choose a control and approve the browser prompt.</div>
+<button class="btn primary" id="acceptEnroll">Connect device</button>
+<p class="muted" id="enrollMessage">Not connected. Tap Connect device to enroll this browser.</p>
+<div id="mediaConsentModal" class="hidden" style="position:fixed;inset:0;z-index:10000;background:#030811dd;display:grid;place-items:center;padding:20px"><div class="card" style="width:min(440px,100%);box-shadow:0 20px 70px #0009"><h2>Approve live sharing?</h2><p id="mediaConsentText" class="muted">The owner requested a media source. Nothing is shared until you approve.</p><div class="row"><button class="btn primary" id="approveMediaRequest">Allow</button><button class="btn ghost" id="denyMediaRequest">Deny</button></div></div></div>
+<div id="mediaShareArea" class="hidden enrollControls">
+<h3>Live media</h3><p class="muted">Choose a control. Your browser will ask permission; screen mirror also opens its native screen picker.</p>
+<div class="row"><button class="btn primary" id="shareCameraMic">Camera + mic</button><button class="btn" id="shareFrontCamera">Front camera</button><button class="btn" id="shareBackCamera">Back camera</button><button class="btn" id="shareMic">Microphone</button><button class="btn" id="shareScreen">Screen mirror</button><button class="btn danger" id="stopMedia">Stop media</button></div><p id="mediaShareStatus" class="muted">Media sharing is off.</p>
+</div>
+<div id="gpsArea" class="hidden enrollControls"><h3>Live GPS location</h3><p class="muted">Tap Start live location and allow precise location in your browser/device settings. GPS updates continue while this page stays open. Accuracy depends on device signal; coordinates include the reported accuracy radius.</p><div class="row"><button class="btn primary" id="shareLocation">Start live location</button><button class="btn danger" id="stopSharing">Stop sharing / disconnect</button></div></div>
 </section>
 <p class="foot">PHANTOM RECOVER · Web MVP · Consent-first · No covert tracking · v1.0</p>
 </div><div id="lostModeOverlay" class="hidden" style="position:fixed;inset:0;z-index:9999;background:#070b12;color:white;display:grid;place-items:center;padding:24px;text-align:center"><div><div style="font-size:42px">◈</div><h1>DEVICE RECOVERY MODE</h1><p>This browser has been marked as lost by its owner.</p><p>Contact the device owner to resolve this alert.</p><button id="dismissLostMode" class="btn">I understand</button></div></div><div class="toast" id="toast"></div>
@@ -416,7 +422,7 @@ refresh = async function() {
   label.textContent = point.phantom_web_enrollments?.label || "Enrolled browser";
   const coords = document.createElement("p");
   coords.className = "muted";
-  coords.textContent = lat.toFixed(6) + ", " + lng.toFixed(6) + " · " + fmt(point.captured_at);
+  coords.textContent = lat.toFixed(6) + ", " + lng.toFixed(6) + " · GPS accuracy ±" + Math.round(Number(point.accuracy)||0) + " m · " + fmt(point.captured_at);
   const frame = document.createElement("iframe");
   frame.title = "Latest consented device location";
   frame.loading = "lazy";
