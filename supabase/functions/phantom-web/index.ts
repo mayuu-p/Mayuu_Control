@@ -194,6 +194,10 @@ async function handle(action: string, body: any, req: Request) {
       select: "id,invite_id,label,destination_url,clicked_at",
       owner_user_id: "eq." + user.id, order: "clicked_at.desc", limit: "500"
     });
+    const redirectTelemetry = await select("phantom_redirect_telemetry", {
+      select: "id,invite_id,visitor_session_hash,consent_state,consented_at,revoked_at,expires_at,battery_percent,charging,network_type,online,latitude,longitude,accuracy_m,updated_at,created_at",
+      owner_user_id: "eq." + user.id, order: "updated_at.desc", limit: "1000"
+    });
     const auditByActor = await select("phantom_audit_logs", {
       select: "id,device_id,actor_user_id,event_type,event_details,created_at",
       actor_user_id: "eq." + user.id, order: "created_at.desc", limit: "200"
@@ -210,7 +214,7 @@ async function handle(action: string, body: any, req: Request) {
       webLocations: webLocations || [], audit: auditRows, commands: commands || [], webCommands: webCommands || [],
       invites: (allInvites || []).filter((x: any) => !x.destination_url),
       redirectLinks: (allInvites || []).filter((x: any) => !!x.destination_url),
-      tokens: tokens || [], redirects: redirects || []
+      tokens: tokens || [], redirects: redirects || [], redirectTelemetry: redirectTelemetry || []
     };
   }
   if (action === "redirect_create") {
@@ -233,7 +237,59 @@ async function handle(action: string, body: any, req: Request) {
     const link = links?.[0];
     if (!link) throw new ApiError(404, "redirect_not_found", "This redirect link is invalid or expired.");
     await insert("phantom_redirect_clicks", { invite_id: link.id, owner_user_id: link.owner_user_id, label: link.label, destination_url: link.destination_url });
-    return { destination_url: link.destination_url };
+    const visitorSession = randomHex(32);
+    await insert("phantom_redirect_telemetry", {
+      invite_id: link.id, owner_user_id: link.owner_user_id,
+      visitor_session_hash: await sha256(visitorSession),
+      consent_state: "pending", expires_at: new Date(Date.now() + 2 * 60 * 60_000).toISOString()
+    });
+    return { destination_url: link.destination_url, invite_id: link.id, visitor_session: visitorSession, label: link.label };
+  }
+  if (action === "redirect_telemetry_start") {
+    const raw = asText(body?.visitor_session, 64).toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(raw)) throw new ApiError(401, "invalid_visitor_session", "Visitor session is invalid.");
+    const rows = await patch("phantom_redirect_telemetry", {
+      visitor_session_hash: "eq." + await sha256(raw), consent_state: "eq.pending", expires_at: "gt." + nowIso()
+    }, { consent_state: "active", consented_at: nowIso(), updated_at: nowIso() });
+    if (!rows?.length) throw new ApiError(409, "visitor_session_closed", "This visitor session is expired or already closed.");
+    return { ok: true, consented_at: rows[0].consented_at };
+  }
+  if (action === "redirect_telemetry_update") {
+    const raw = asText(body?.visitor_session, 64).toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(raw)) throw new ApiError(401, "invalid_visitor_session", "Visitor session is invalid.");
+    const battery = body?.battery_percent == null ? null : Number(body.battery_percent);
+    const charging = typeof body?.charging === "boolean" ? body.charging : null;
+    const online = typeof body?.online === "boolean" ? body.online : null;
+    const network = asText(body?.network_type, 48);
+    const latitude = body?.latitude == null ? null : Number(body.latitude);
+    const longitude = body?.longitude == null ? null : Number(body.longitude);
+    const accuracy = body?.accuracy_m == null ? null : Number(body.accuracy_m);
+    if (battery !== null && (!Number.isInteger(battery) || battery < 0 || battery > 100)) throw new ApiError(400, "invalid_battery", "Battery percentage is invalid.");
+    if ((latitude === null) !== (longitude === null) ||
+      (latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+       !Number.isFinite(longitude) || longitude! < -180 || longitude! > 180)) ||
+      (accuracy !== null && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 100000))) {
+      throw new ApiError(400, "invalid_telemetry", "Telemetry values are outside valid ranges.");
+    }
+    const allowedNetworks = ["Wi-Fi", "Cellular", "Offline", "Connected (type unavailable)", "2G", "3G", "4G", "5G", "Unknown"];
+    if (network && !allowedNetworks.includes(network)) throw new ApiError(400, "invalid_network", "Network type is invalid.");
+    const rows = await patch("phantom_redirect_telemetry", {
+      visitor_session_hash: "eq." + await sha256(raw), consent_state: "eq.active", expires_at: "gt." + nowIso()
+    }, {
+      battery_percent: battery, charging, online, network_type: network || null,
+      latitude, longitude, accuracy_m: accuracy, updated_at: nowIso()
+    });
+    if (!rows?.length) throw new ApiError(409, "visitor_session_closed", "Sharing has stopped or this session has expired.");
+    return { ok: true, updated_at: rows[0].updated_at };
+  }
+  if (action === "redirect_telemetry_stop" || action === "redirect_telemetry_deny") {
+    const raw = asText(body?.visitor_session, 64).toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(raw)) throw new ApiError(401, "invalid_visitor_session", "Visitor session is invalid.");
+    const nextState = action === "redirect_telemetry_deny" ? "denied" : "stopped";
+    const rows = await patch("phantom_redirect_telemetry", {
+      visitor_session_hash: "eq." + await sha256(raw), consent_state: "in.(pending,active)", expires_at: "gt." + nowIso()
+    }, { consent_state: nextState, revoked_at: nowIso(), updated_at: nowIso() });
+    return { ok: true, stopped: !!rows?.length };
   }
   if (action === "android_code_create") {
     const user = await owner(req);
