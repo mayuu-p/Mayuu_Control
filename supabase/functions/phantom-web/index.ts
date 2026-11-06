@@ -273,20 +273,22 @@ async function handle(action: string, body: any, req: Request) {
     if (!validUuid(enrollment_id) || !["ring", "lost_mode", "clear_lost_mode"].includes(command)) throw new ApiError(400, "invalid_command", "Browser command is invalid.");
     const found = await select("phantom_web_enrollments", { select: "id,status,revoked_at", id: "eq." + enrollment_id, owner_user_id: "eq." + user.id, limit: "1" });
     if (!found?.length || found[0].status === "revoked") throw new ApiError(404, "enrollment_not_found", "Browser enrollment not found or revoked.");
-    const rows = await insert("phantom_web_commands", { owner_user_id: user.id, enrollment_id, command, payload: {}, status: "queued" });
+    const expires_at = new Date(Date.now() + 5 * 60_000).toISOString();
+    const rows = await insert("phantom_web_commands", { owner_user_id: user.id, enrollment_id, command, payload: {}, status: "queued", expires_at });
     await audit("browser_recovery_command_sent", user.id, null, { enrollment_id, command, command_id: rows?.[0]?.id });
     return { command: rows?.[0] || null };
   }
   if (action === "web_command_poll") {
     const enrollment = await webSession(req);
-    const rows = await select("phantom_web_commands", { select: "id,command,payload,status,created_at", enrollment_id: "eq." + enrollment.id, owner_user_id: "eq." + enrollment.owner_user_id, status: "eq.queued", order: "created_at.asc", limit: "20" });
+    await patch("phantom_web_commands", { enrollment_id: "eq." + enrollment.id, status: "eq.queued", expires_at: "lte." + nowIso() }, { status: "expired" });
+    const rows = await select("phantom_web_commands", { select: "id,command,payload,status,created_at,expires_at", enrollment_id: "eq." + enrollment.id, owner_user_id: "eq." + enrollment.owner_user_id, status: "eq.queued", expires_at: "gt." + nowIso(), order: "created_at.asc", limit: "20" });
     for (const c of rows || []) await patch("phantom_web_commands", { id: "eq." + c.id, enrollment_id: "eq." + enrollment.id, status: "eq.queued" }, { status: "delivered", delivered_at: nowIso() });
     return { commands: rows || [], server_time: nowIso() };
   }
   if (action === "web_command_ack") {
     const enrollment = await webSession(req), id = body?.command_id, next = asText(body?.status, 20);
     if (!validUuid(id) || !["acknowledged", "failed"].includes(next)) throw new ApiError(400, "invalid_ack", "Command acknowledgment is invalid.");
-    const rows = await patch("phantom_web_commands", { id: "eq." + id, enrollment_id: "eq." + enrollment.id, owner_user_id: "eq." + enrollment.owner_user_id, status: "eq.delivered" }, { status: next, acknowledged_at: nowIso() });
+    const rows = await patch("phantom_web_commands", { id: "eq." + id, enrollment_id: "eq." + enrollment.id, owner_user_id: "eq." + enrollment.owner_user_id, status: "eq.delivered", expires_at: "gt." + nowIso() }, { status: next, acknowledged_at: nowIso() });
     if (!rows?.length) throw new ApiError(404, "command_not_found", "Command not found or already closed.");
     return { ok: true, status: next };
   }
