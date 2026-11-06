@@ -141,22 +141,20 @@ function renderCapabilities(){
  const nativeLatest=nativeOnline[0]||nativeDevicesData.find(x=>x.status!=="revoked");
  const nativeLoc=nativeWaitsData[0],browserLoc=WaitsData[0];
  const screen=!!b.mediaSupport?.screenCapture;
+ const gpsPoint=browserLoc||nativeLoc;
+ const gpsValue=gpsPoint?("Lat "+Number(gpsPoint.latitude).toFixed(7)+" · Lon "+Number(gpsPoint.longitude).toFixed(7)+" · ±"+Math.round(Number(gpsPoint.accuracy_m)||0)+" m · "+fmt(gpsPoint.captured_at)):"No GPS fix shared";
  const rows=[
  [ "Browser/device session",latest?(liveStatus(latest)==="online"?"Connected · recent heartbeat":"Enrolled · browser offline"):"No browser enrollment","Requires enrolled browser tab to remain open"],
  [ "Device model",b.model||nativeLatest?.model||"Not exposed","Browser-reported or Android-agent reported"],
  [ "Operating system",[b.platform,b.platformVersion].filter(Boolean).join(" ")||nativeLatest?.android_version||"Not reported","Browser / Android report"],
- [ "Public IP",latest?.observed_public_ip||"Unavailable","Server-observed for browser enrollment only; native IP is not stored"],
- [ "GPS",browserLoc?("Browser · "+fmt(browserLoc.captured_at)):nativeLoc?("Android · "+fmt(nativeLoc.captured_at)):"Not shared","One-time user action and OS/browser Viewpermission required"],
- [ "Battery",nativeLatest?.battery_percent!=null?(nativeLatest.battery_percent+"% · Android agent"):b.battery?(b.battery.level+"% · "+(b.battery.charging?"Charging":"Not charging")):"Not exposed","Native Android heartbeat or supported browser Battery API"],
- [ "IMEI","Unavailable","Not exposed to ordinary websites; Android restricts access"],
- [ "SIM / SIM-change alert","Unavailable","Not implemented; Android/OEM access is restricted"],
- [ "Android recovery alarm",nativeOnline.length?"Available · enrolled Android online":nativeLatest?"Queued only · Android agent offline":"Unavailable · no Android agent","Visible foreground service and notification; delivery requires device online"],
- [ "Android heartbeat",nativeOnline.length?"Active · recent heartbeat":nativeLatest?"Stale · no heartbeat in last 2 minutes":"Unavailable · no Android agent","30-second foreground-service loop; OS may stop it"],
- [ "Browser ring alert",latest&&liveStatus(latest)==="online"?"Command queue available":"Unavailable · browser offline","Target browser tab must remain open; audio policy applies"],
- [ "Browser recovery screen",latest&&liveStatus(latest)==="online"?"Command queue available":"Unavailable · browser offline","Visible in enrolled browser tab only"],
- [ "Camera / microphone permission",b.permissionState?("Camera: "+(b.permissionState.camera||"unknown")+" · Mic: "+(b.permissionState.microphone||"unknown")):"Not reported","Permission is device/browser-specific; owner request still requires the person to approve"],
-  [ "Viewpermission",b.permissionState?.geolocation||"Not reported","Viewis off until the enrolled person starts sharing and approves the browser prompt"],
-  [ "Screen sharing",screen?"Browser API available · approval required":"Browser capture unsupported / not reported","Browser screen capture only on supported browsers; native Android MediaProjection stream is not implemented"]
+ [ "Public IP",latest?.observed_public_ip||"Unavailable","Server-observed public IP; may represent carrier/VPN gateway"],
+ [ "GPS coordinates",gpsValue,"Exact coordinates and reported accuracy from the last user-approved GPS fix"],
+ [ "Battery",nativeLatest?.battery_percent!=null?(nativeLatest.battery_percent+"% · Android agent"):b.battery?(b.battery.level+"% · "+(b.battery.charging?"Charging":"Not charging")):"Not exposed","Reported by connected Android agent or supported browser"],
+ [ "Android recovery alarm",nativeOnline.length?"Available · enrolled Android online":nativeLatest?"Queued only · Android agent offline":"Unavailable · install and enroll Android app","Visible foreground-service notification; phone must be online"],
+ [ "Android heartbeat",nativeOnline.length?"Active · recent heartbeat":nativeLatest?"Stale · no heartbeat in last 2 minutes":"Unavailable · no Android agent","Visible foreground service; Android may stop it"],
+ [ "Browser ring alert",latest&&liveStatus(latest)==="online"?"Command queue available":"Unavailable · browser offline","Enrolled browser tab must remain open"],
+ [ "Camera / microphone permission",b.permissionState?("Camera: "+(b.permissionState.camera||"unknown")+" · Mic: "+(b.permissionState.microphone||"unknown")):"Not reported","Owner request requires the enrolled person to approve the browser prompt"],
+ [ "Location permission",b.permissionState?.geolocation||"Not reported","Location sharing starts only after the enrolled person approves it"]
  ];
  $("capabilityMatrix").innerHTML=rows.map(r=>'<div class="caprow"><div><b>'+safe(r[0])+'</b><div class="muted">'+safe(r[2])+'</div></div><div class="capvalue">'+safe(r[1])+'</div></div>').join("");
 }
