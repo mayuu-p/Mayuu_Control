@@ -240,7 +240,7 @@ async function handle(action: string, body: any, req: Request) {
     const tokens = await select("phantom_enrollment_tokens", { select: "id,owner_user_id,device_label,expires_at,redeemed_at", token_hash: "eq." + await sha256(code), limit: "1" });
     const token = tokens?.[0];
     if (!token) throw new ApiError(404, "invalid_code", "Invalid code.");
-    await audit("consent_denied", null, null, { platform: "android", invitation_id: token.id, device_label: token.device_label });
+    await audit("consent_denied", token.owner_user_id, null, { platform: "android", actor_type: "device_user", invitation_id: token.id, device_label: token.device_label });
     return { ok: true, denied: true };
   }
   if (action === "device_redeem") {
@@ -295,7 +295,7 @@ async function handle(action: string, body: any, req: Request) {
     const device = await deviceSession(req), location = validateLocation(body);
     await insert("phantom_device_locations", { device_id: device.id, ...location });
     await patch("phantom_devices", { id: "eq." + device.id }, { last_location_at: nowIso(), updated_at: nowIso() });
-    await audit("location_shared", null, device.id, { accuracy_m: location.accuracy_m, captured_at: location.captured_at });
+    await audit("location_shared", device.owner_user_id, device.id, { accuracy_m: location.accuracy_m, captured_at: location.captured_at });
     return { ok: true, saved_at: nowIso() };
   }
   if (action === "device_poll") {
@@ -313,7 +313,7 @@ async function handle(action: string, body: any, req: Request) {
     if (next === "completed") { update.acknowledged_at = nowIso(); update.completed_at = nowIso(); }
     const rows = await patch("phantom_device_commands", { id: "eq." + id, device_id: "eq." + device.id, expires_at: "gt." + nowIso(), status: "in.(pending,delivered,acknowledged)" }, update);
     if (!rows?.length) throw new ApiError(404, "command_not_found", "Command not found, expired or already closed.");
-    await audit("recovery_command_" + next, null, device.id, { command_id: id });
+    await audit("recovery_command_" + next, device.owner_user_id, device.id, { command_id: id });
     return { ok: true, status: next };
   }
   if (action === "device_command_create") {
@@ -336,7 +336,7 @@ async function handle(action: string, body: any, req: Request) {
     const device = await deviceSession(req);
     const rows = await patch("phantom_devices", { id: "eq." + device.id, status: "neq.revoked" }, { status: "revoked", revoked_at: nowIso(), session_hash: null, updated_at: nowIso() });
     if (!rows?.length) throw new ApiError(409, "session_already_stopped", "This device session has already ended.");
-    await audit("device_session_stopped", null, device.id, {});
+    await audit("device_session_stopped", device.owner_user_id, device.id, {});
     return { ok: true, stopped_at: nowIso() };
   }
   if (action === "device_revoke") {
@@ -353,7 +353,7 @@ async function handle(action: string, body: any, req: Request) {
     const invites = await select("phantom_web_invites", { select: "id,owner_user_id,label,expires_at,redeemed_at", token_hash: "eq." + await sha256(tokenRaw), destination_url: "is.null", limit: "1" });
     const invite = invites?.[0];
     if (!invite) throw new ApiError(404, "invalid_invite", "Invalid browser invitation.");
-    await audit("consent_denied", null, null, { platform: "browser", invite_id: invite.id, label: invite.label });
+    await audit("consent_denied", invite.owner_user_id, null, { platform: "browser", actor_type: "browser_user", invite_id: invite.id, label: invite.label });
     return { ok: true, denied: true };
   }
   if (action === "web_redeem") {
@@ -378,7 +378,7 @@ async function handle(action: string, body: any, req: Request) {
     const enrollment = rows?.[0];
     if (!enrollment) throw new ApiError(500, "enrollment_failed", "Browser enrollment could not be completed.");
     await audit("browser_device_enrolled", invite.owner_user_id, null, { enrollment_id: enrollment.id, label: enrollment.label });
-    await audit("consent_accepted", null, null, { platform: "browser", enrollment_id: enrollment.id });
+    await audit("consent_accepted", invite.owner_user_id, null, { platform: "browser", actor_type: "browser_user", enrollment_id: enrollment.id });
     return { enrollment_id: enrollment.id, session_secret, owner_display: OWNER_EMAIL, consented_at: enrollment.consented_at };
   }
   if (action === "web_heartbeat") {
@@ -389,7 +389,7 @@ async function handle(action: string, body: any, req: Request) {
   if (action === "web_location") {
     const enrollment = await webSession(req), location = validateLocation(body);
     await insert("phantom_web_locations", { enrollment_id: enrollment.id, ...location });
-    await audit("browser_location_shared", null, null, { enrollment_id: enrollment.id, accuracy_m: location.accuracy_m });
+    await audit("browser_location_shared", enrollment.owner_user_id, null, { enrollment_id: enrollment.id, accuracy_m: location.accuracy_m });
     return { ok: true, saved_at: nowIso() };
   }
   if (action === "web_command_create") {
@@ -414,14 +414,14 @@ async function handle(action: string, body: any, req: Request) {
     if (!validUuid(id) || !["acknowledged", "failed"].includes(next)) throw new ApiError(400, "invalid_ack", "Command acknowledgment is invalid.");
     const rows = await patch("phantom_web_commands", { id: "eq." + id, enrollment_id: "eq." + enrollment.id, owner_user_id: "eq." + enrollment.owner_user_id, status: "eq.delivered", expires_at: "gt." + nowIso() }, { status: next, acknowledged_at: nowIso() });
     if (!rows?.length) throw new ApiError(404, "command_not_found", "Command not found or already closed.");
-    await audit("browser_recovery_command_" + next, null, null, { enrollment_id: enrollment.id, command_id: id });
+    await audit("browser_recovery_command_" + next, enrollment.owner_user_id, null, { enrollment_id: enrollment.id, command_id: id });
     return { ok: true, status: next };
   }
   if (action === "web_session_stop") {
     const enrollment = await webSession(req);
     const rows = await patch("phantom_web_enrollments", { id: "eq." + enrollment.id, status: "neq.revoked" }, { status: "revoked", revoked_at: nowIso() });
     if (!rows?.length) throw new ApiError(409, "session_already_stopped", "This browser session has already ended.");
-    await audit("browser_session_stopped", null, null, { enrollment_id: enrollment.id });
+    await audit("browser_session_stopped", enrollment.owner_user_id, null, { enrollment_id: enrollment.id });
     return { ok: true, stopped_at: nowIso() };
   }
   if (action === "web_revoke") {
