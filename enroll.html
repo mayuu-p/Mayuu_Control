@@ -40,7 +40,7 @@
  }
  function stopHeartbeat(){if(heartbeat!==null)clearInterval(heartbeat);heartbeat=null;}
  function endLocal(){stopLocation();stopHeartbeat();secret="";sessionStorage.removeItem("phantom_browser_session");sessionStorage.removeItem("phantom_browser_enrollment");stopped=true;$("sessionPanel").classList.add("hidden");show("This browser session has ended. No background activity continues.","ok");}
- async function heartbeatOnce(){if(!secret||stopped)return;try{await api("web_heartbeat",{},true)}catch(e){show("Connection lost: "+e.message,"err");stopHeartbeat();}}
+ async function heartbeatOnce(){if(!secret||stopped)return;try{await api("web_heartbeat",{},true)}catch(e){show("Connection issue: "+e.message,"err");if(/expired|revoked|invalid browser session/i.test(e.message)){endLocal();}}}
  function startHeartbeat(){stopHeartbeat();heartbeat=setInterval(heartbeatOnce,30000);}
  $("allowBtn").addEventListener("click",async()=>{
   $("allowBtn").disabled=true;show("Creating your browser enrollment…");
@@ -49,6 +49,7 @@
    const data=await api("web_redeem",{invite,consent:true,label:"Browser · "+(navigator.platform||"Device"),browser_info:{userAgent:navigator.userAgent,language:navigator.language}});
    secret=data.session_secret;enrollment=data.enrollment_id;
    sessionStorage.setItem("phantom_browser_session",secret);sessionStorage.setItem("phantom_browser_enrollment",enrollment);
+   history.replaceState({}, "", location.pathname+"?session=active");
    $("consentActions").classList.add("hidden");$("sessionPanel").classList.remove("hidden");
    show("Enrollment confirmed by server. Your browser is connected only while this page remains open.","ok");startHeartbeat();
   }catch(e){show(e.message,"err");$("allowBtn").disabled=false;}
