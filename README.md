@@ -5,7 +5,7 @@ Mayuu Control · Personal Device Security & Recovery Platform
 
 ## Project status
 
-The repository was intentionally emptied on 2026-11-06. This is the clean rebuild on the existing `main` branch. The Supabase project and existing PHANTOM tables/migration history were preserved. The `phantom-web` Edge Function has been restored and is deployed (version 20).
+The repository was intentionally emptied on 2026-11-06. This is the clean rebuild on the existing `main` branch. The Supabase project and existing PHANTOM tables/migration history were preserved. The `phantom-web` Edge Function has been restored and is deployed (version 22).
 
 The current web and API foundation provides:
 - Supabase Auth sign-in restricted to `mayur99@gmail.com`
