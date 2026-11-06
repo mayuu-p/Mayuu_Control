@@ -1,21 +1,122 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d18"><title>Secure Redirect · PHANTOM RECOVER</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#070b13;color:#eaf2ff;font:14px system-ui,sans-serif;padding:20px}.card{width:min(440px,100%);padding:26px;border:1px solid #203148;border-radius:16px;background:#0e1929;text-align:center}.logo{font-size:28px;color:#19d9f5}.logo img{width:36px;height:36px;display:block;margin:auto}.muted{color:#8b9bb1}.error{color:#ff9eae}</style></head><body><main class="card"><div class="logo"><img src="assets/phantom-logo.svg" alt="PHANTOM shield"></div><h1>PHANTOM RECOVER</h1><p id="status" class="muted">Checking secure redirect link…</p></main>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d18">
+<title>Secure Redirect · PHANTOM RECOVER</title>
+<style>
+:root{color-scheme:dark;--bg:#070b13;--panel:#0e1929;--line:#203148;--text:#eaf2ff;--muted:#8b9bb1;--cyan:#19d9f5;--green:#36d69a;--red:#ff9eae}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 0,#0b2a43 0,transparent 45%),var(--bg);color:var(--text);font:14px/1.55 system-ui,sans-serif;padding:18px}
+.card{width:min(560px,100%);padding:26px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#101c2d,#0a111d);box-shadow:0 20px 70px #0007}
+.logo{font-size:28px;color:var(--cyan);text-align:center}.logo img{width:42px;height:42px;display:block;margin:auto}h1{text-align:center;font-size:20px;letter-spacing:.08em;margin:10px 0 4px}.muted{color:var(--muted)}.intro{text-align:center;margin:0 0 20px}.notice{padding:13px;border:1px solid #24506b;background:#0b1e30;border-radius:11px;margin:14px 0}.fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0}.field{padding:12px;border:1px solid var(--line);border-radius:10px;background:#0a1422}.field strong{display:block;font-size:12px}.field small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}button,.link{border:1px solid #24506b;background:#10263a;color:#dffaff;border-radius:10px;padding:11px 14px;font:700 13px system-ui;text-decoration:none;cursor:pointer}.primary{background:linear-gradient(110deg,#087f9b,#1559a8);color:white}.danger{border-color:#703442;background:#29131c;color:#ffb8c2}.hidden{display:none!important}.status{margin-top:14px;padding:11px;border-radius:9px;border:1px solid var(--line);background:#111f31;color:#c8d7e9;overflow-wrap:anywhere}.status.ok{border-color:#1c634f;color:#9cf0d2}.status.err{border-color:#713747;color:#ffb7c3}.fine{font-size:11px;color:var(--muted);margin-top:14px}.coordinates{font-family:ui-monospace,monospace}
+@media(max-width:430px){.card{padding:19px}.fields{grid-template-columns:1fr 1fr}.actions>*{flex:1 1 100%;text-align:center}}
+</style></head>
+<body><main class="card">
+<div class="logo"><img src="assets/phantom-logo.svg" alt="PHANTOM shield"></div><h1>PHANTOM RECOVER</h1>
+<p class="intro muted">Secure redirect · visitor-controlled sharing</p>
+<div id="consentView" class="hidden">
+ <h2 style="font-size:16px">Choose what you want to share</h2>
+ <p class="muted">This redirect link owner will see telemetry only for this link. Nothing is collected until you choose Allow. GPS is optional and triggers your browser's location permission prompt only after you press Enable GPS.</p>
+ <div class="fields">
+  <div class="field"><strong>Battery percentage</strong><small>Only if this browser exposes battery status</small></div>
+  <div class="field"><strong>Charging / Not charging</strong><small>Only if supported by the browser</small></div>
+  <div class="field"><strong>Network / Online status</strong><small>Wi-Fi or cellular only when the browser exposes the type</small></div>
+  <div class="field"><strong>Live GPS coordinates</strong><small>Optional; precise location permission required</small></div>
+ </div>
+ <div class="actions"><button id="allowBtn" class="primary">Allow telemetry sharing</button><button id="denyBtn">Deny and continue</button></div>
+</div>
+<div id="liveView" class="hidden">
+ <div class="status ok" id="liveState">Sharing is active in this tab.</div>
+ <div class="fields">
+  <div class="field"><strong>Battery</strong><small id="batteryValue">Unavailable</small></div>
+  <div class="field"><strong>Charging</strong><small id="chargingValue">Unavailable</small></div>
+  <div class="field"><strong>Network</strong><small id="networkValue">Checking…</small></div>
+  <div class="field"><strong>Online status</strong><small id="onlineValue">Checking…</small></div>
+  <div class="field"><strong>Latitude / Longitude</strong><small id="gpsValue" class="coordinates">Not shared</small></div>
+  <div class="field"><strong>GPS accuracy</strong><small id="accuracyValue">Not shared</small></div>
+  <div class="field"><strong>Last updated</strong><small id="updatedValue">—</small></div>
+ </div>
+ <div class="actions"><button id="gpsBtn">Enable live GPS</button><a id="destinationLink" class="link primary" target="_blank" rel="noopener noreferrer">Continue to destination ↗</a><button id="stopBtn" class="danger">Stop sharing</button></div>
+ <p class="fine">Live sharing runs only while this page remains open. Opening the destination uses a separate tab so you can stop sharing here at any time. Closing this tab ends active collection; the server session expires automatically after two hours.</p>
+</div>
+<div id="deniedView" class="hidden"><div class="status">No device telemetry or GPS was shared. You can still continue to the destination.</div><div class="actions"><a id="deniedDestination" class="link primary" target="_blank" rel="noopener noreferrer">Continue to destination ↗</a></div></div>
+<div id="status" class="status">Validating secure redirect link…</div>
+<p class="fine">Battery and network APIs vary by browser. Unsupported values are shown as unavailable, never guessed. This page does not access messages, calls, notifications, camera, or microphone.</p>
+</main>
 <script>
 (async()=>{
  const API="https://ewvirpfovwruxshzzlaa.supabase.co/functions/v1/phantom-web";
  const KEY="sb_publishable_Uc0KqgR1D4orcedVlswdRw_HYq1IZJk";
  const token=new URLSearchParams(location.search).get("token")||"";
- const status=document.getElementById("status");
+ const $=id=>document.getElementById(id), status=$("status");
+ let destination="",visitorSession="",watchId=null,battery=null,timer=null,stopped=false;
+ const time12=v=>new Date(v||Date.now()).toLocaleString("en-IN",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true});
+ const call=async(action,payload={})=>{
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({action,...payload}),cache:"no-store"});
+  let data={};try{data=await r.json()}catch{}
+  if(!r.ok||data.ok===false)throw new Error(data.message||"Request failed.");
+  return data;
+ };
+ const showError=e=>{status.className="status err";status.textContent=e.message||"Unable to process this redirect.";};
+ const networkType=()=>{
+  if(!navigator.onLine)return "Offline";
+  const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if(c?.type==="wifi")return "Wi-Fi";
+  if(c?.type==="cellular")return "Cellular";
+  const et=String(c?.effectiveType||"").toLowerCase();
+  if(["2g","3g","4g","5g"].includes(et))return et.toUpperCase();
+  return "Connected (type unavailable)";
+ };
+ const batteryData=async()=>{
+  if(!navigator.getBattery)return {battery_percent:null,charging:null};
+  try{battery=battery||await navigator.getBattery();return {battery_percent:Math.max(0,Math.min(100,Math.round(battery.level*100))),charging:!!battery.charging};}
+  catch{return {battery_percent:null,charging:null};}
+ };
+ let coords=null;
+ const paint=async()=>{
+  const b=await batteryData(),online=!!navigator.onLine,net=networkType();
+  $("batteryValue").textContent=b.battery_percent==null?"Unavailable":b.battery_percent+"%";
+  $("chargingValue").textContent=b.charging==null?"Unavailable":b.charging?"Charging":"Not charging";
+  $("networkValue").textContent=net;$("onlineValue").textContent=online?"Online":"Offline";
+  $("gpsValue").textContent=coords?coords.latitude.toFixed(6)+", "+coords.longitude.toFixed(6):"Not shared";
+  $("accuracyValue").textContent=coords?"±"+Math.round(coords.accuracy)+" metres":"Not shared";
+  $("updatedValue").textContent=time12();
+  if(!stopped){try{await call("redirect_telemetry_update",{visitor_session:visitorSession,...b,online,network_type:net,latitude:coords?.latitude??null,longitude:coords?.longitude??null,accuracy_m:coords?.accuracy??null});}
+   catch(e){$("liveState").className="status err";$("liveState").textContent=e.message;stopLocal(false);}}
+ };
+ const stopLocal=async(send=true)=>{
+  if(stopped)return;stopped=true;if(timer)clearInterval(timer);timer=null;
+  if(watchId!==null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);watchId=null;
+  if(send&&visitorSession){try{await call("redirect_telemetry_stop",{visitor_session:visitorSession});}catch{}}
+  $("liveState").className="status";$("liveState").textContent="Sharing stopped.";
+  $("stopBtn").disabled=true;$("gpsBtn").disabled=true;
+ };
  try{
   if(!/^[0-9a-f]{64}$/i.test(token))throw new Error("This redirect link is invalid or expired.");
-  const response=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({action:"redirect_resolve",token}),cache:"no-store"});
-  const result=await response.json();
-  if(!response.ok||result.ok===false)throw new Error(result.message||"This redirect link is invalid or expired.");
-  const destination=new URL(result.destination_url);
-  if(destination.protocol!=="https:")throw new Error("The destination is not allowed.");
-  status.textContent="Redirect confirmed. Opening destination…";
-  location.replace(destination.toString());
- }catch(e){status.className="error";status.textContent=e.message||"Unable to complete redirect.";}
+  const result=await call("redirect_resolve",{token});
+  destination=new URL(result.destination_url).toString();visitorSession=result.visitor_session;
+  $("destinationLink").href=destination;$("deniedDestination").href=destination;
+  $("consentView").classList.remove("hidden");status.textContent="Review the sharing choices above. Nothing is being collected.";
+ }catch(e){showError(e);}
+ $("allowBtn").addEventListener("click",async()=>{
+  $("allowBtn").disabled=true;
+  try{await call("redirect_telemetry_start",{visitor_session:visitorSession});$("consentView").classList.add("hidden");$("liveView").classList.remove("hidden");status.classList.add("hidden");await paint();timer=setInterval(paint,15000);
+   if(battery){battery.addEventListener("levelchange",paint);battery.addEventListener("chargingchange",paint);}
+   const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;c?.addEventListener?.("change",paint);
+   window.addEventListener("online",paint);window.addEventListener("offline",paint);
+  }catch(e){showError(e);$("allowBtn").disabled=false;}
+ });
+ $("denyBtn").addEventListener("click",async()=>{
+  $("denyBtn").disabled=true;try{await call("redirect_telemetry_deny",{visitor_session:visitorSession});$("consentView").classList.add("hidden");$("deniedView").classList.remove("hidden");status.classList.add("hidden");}
+  catch(e){showError(e);$("denyBtn").disabled=false;}
+ });
+ $("gpsBtn").addEventListener("click",()=>{
+  if(!navigator.geolocation){$("liveState").textContent="GPS is not supported by this browser.";return;}
+  $("gpsBtn").disabled=true;
+  watchId=navigator.geolocation.watchPosition(pos=>{coords={latitude:pos.coords.latitude,longitude:pos.coords.longitude,accuracy:pos.coords.accuracy};paint();},
+   err=>{$("liveState").className="status err";$("liveState").textContent="GPS not shared: "+err.message;$("gpsBtn").disabled=false;},
+   {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+ });
+ $("stopBtn").addEventListener("click",()=>stopLocal(true));
+ window.addEventListener("pagehide",()=>{if(visitorSession&&!stopped){const payload=JSON.stringify({action:"redirect_telemetry_stop",visitor_session:visitorSession});try{navigator.sendBeacon(API,new Blob([payload],{type:"application/json"}));}catch{}}});
 })();
 </script></body></html>
