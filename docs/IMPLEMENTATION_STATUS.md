@@ -9,7 +9,7 @@ Last checked: 2026-11-06
 - Owner Auth account: exists and email is confirmed.
 - Existing PHANTOM tables: present, zero rows at audit time.
 - Existing migration history: present.
-- Existing `phantom-web` function: restored and deployed as version 23; runtime invocation still needs end-to-end verification.
+- Existing `phantom-web` function: restored and deployed as version 24; runtime invocation still needs end-to-end verification.
 - No secret values are printed or committed.
 
 ## Phase 1 progress
